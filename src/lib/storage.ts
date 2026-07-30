@@ -127,7 +127,9 @@ const readLS = <T,>(key: string, defaultValue: T): T => {
 const writeLS = (key: string, data: unknown) => {
   try {
     localStorage.setItem(key, JSON.stringify(data));
-  } catch {}
+  } catch {
+    // Ignore storage write failures and keep the in-memory data flow working.
+  }
 };
 
 const syncCollectionCache = <T,>(key: string, data: T[]) => {
