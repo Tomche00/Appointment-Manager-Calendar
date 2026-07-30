@@ -10,5 +10,41 @@
     "address": "",
     "emergencyContact": "",
     "notes": ""
+  },
+  {
+    "id": "fc8756a8-cf0f-489c-bbe2-95a2b63c943c",
+    "createdAt": "2026-07-30T17:44:21.617Z",
+    "firstName": "Backend",
+    "lastName": "Patient1785433461603",
+    "email": "backend.1785433461603@test.medical",
+    "phone": "555-1603",
+    "dateOfBirth": "1991-01-01",
+    "address": "",
+    "emergencyContact": "",
+    "notes": ""
+  },
+  {
+    "id": "acd6461a-dfb1-4395-8491-3cbbe770fd6d",
+    "createdAt": "2026-07-30T17:46:28.120Z",
+    "firstName": "Carol",
+    "lastName": "Osei",
+    "email": "carol.osei@test.medical",
+    "phone": "555-0199",
+    "dateOfBirth": "1990-07-04",
+    "address": "99 Maple Road, Capital City",
+    "emergencyContact": "",
+    "notes": "First visit"
+  },
+  {
+    "id": "f2a7ecc6-20c2-4efa-9220-f893105dcec5",
+    "createdAt": "2026-07-30T17:46:30.738Z",
+    "firstName": "Duplicate",
+    "lastName": "User",
+    "email": "alice.thornton@test.medical",
+    "phone": "555-9999",
+    "dateOfBirth": "2000-01-01",
+    "address": "",
+    "emergencyContact": "",
+    "notes": ""
   }
 ]

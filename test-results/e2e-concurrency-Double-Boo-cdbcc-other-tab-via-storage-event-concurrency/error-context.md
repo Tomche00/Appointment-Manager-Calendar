@@ -12,22 +12,47 @@
 # Error details
 
 ```
-Error: expect(locator).toBeVisible() failed
-
-Locator: getByTestId('toast-success')
-Expected: visible
-Timeout: 5000ms
-Error: element(s) not found
-
+TimeoutError: locator.click: Timeout 10000ms exceeded.
 Call log:
-  - Expect "toBeVisible" with timeout 5000ms
-  - waiting for getByTestId('toast-success')
+  - waiting for getByTestId('patient-option-patient-test-001')
 
 ```
 
 # Test source
 
 ```ts
+  1   | // tests/utils/bookingHelper.ts
+  2   | // Page-Object style helper for the booking flow.
+  3   | // Tests use this instead of duplicating selectors.
+  4   | 
+  5   | import { Locator, Page, expect } from '@playwright/test';
+  6   | import { nextWorkingSlot } from '../test-data/seed';
+  7   | 
+  8   | export interface BookingOptions {
+  9   |   patientId?: string;         // select existing patient
+  10  |   newPatient?: {              // OR create inline
+  11  |     firstName: string;
+  12  |     lastName: string;
+  13  |     email: string;
+  14  |     phone: string;
+  15  |     dateOfBirth: string;
+  16  |   };
+  17  |   type: 'consultation' | 'follow-up' | 'procedure';
+  18  |   duration: 30 | 60 | 120;
+  19  |   notes?: string;
+  20  |   syncToGoogle?: boolean;
+  21  |   slotDate?: Date;            // defaults to nextWorkingSlot()
+  22  | }
+  23  | 
+  24  | export const bookingHelper = {
+  25  |   async selectRadixOption(page: Page, triggerTestId: string, optionTestId: string): Promise<void> {
+  26  |     await page.getByTestId(triggerTestId).click();
+  27  |     await page.getByTestId(optionTestId).click();
+  28  |   },
+  29  | 
+  30  |   // ── Navigate ──────────────────────────────────────────────────────────────
+  31  | 
+  32  |   async goToScheduler(page: Page): Promise<void> {
   33  |     await page.getByTestId('nav-scheduler').click();
   34  |     await expect(page.getByTestId('scheduler-grid')).toBeVisible();
   35  |   },
@@ -57,7 +82,8 @@ Call log:
   59  |       await dialog.getByTestId('patient-select').click();
   60  |       await page
   61  |         .getByTestId(`patient-option-${options.patientId}`)
-  62  |         .click();
+> 62  |         .click();
+      |          ^ TimeoutError: locator.click: Timeout 10000ms exceeded.
   63  |     } else if (options.newPatient) {
   64  |       await dialog.getByTestId('create-new-patient-btn').click();
   65  |       await this.fillNewPatientForm(page, options.newPatient);
@@ -128,23 +154,31 @@ Call log:
   130 |     await this.fillBookingForm(page, options);
   131 |     await this.submit(page);
   132 |     // Toast confirmation
-> 133 |     await expect(page.getByTestId('toast-success')).toBeVisible();
-      |                                                     ^ Error: expect(locator).toBeVisible() failed
+  133 |     await expect(page.getByTestId('toast-success')).toBeVisible();
   134 |   },
   135 | 
   136 |   // ── Status change ─────────────────────────────────────────────────────────
   137 | 
   138 |   async changeStatus(
   139 |     page: Page,
-  140 |     appointmentTestId: string,
+  140 |     appointmentTarget: string | Locator,
   141 |     newStatus: 'scheduled' | 'completed' | 'cancelled' | 'no-show',
   142 |   ): Promise<void> {
-  143 |     await page.getByTestId(appointmentTestId).click();
-  144 |     await expect(page.getByTestId('appointment-detail-dialog')).toBeVisible();
-  145 |     await this.selectRadixOption(page, 'status-select', `status-option-${newStatus}`);
-  146 |     await page.getByTestId('save-status-btn').click();
-  147 |     await expect(page.getByTestId('appointment-detail-dialog')).not.toBeVisible();
-  148 |   },
-  149 | };
-  150 | 
+  143 |     if (typeof appointmentTarget === 'string') {
+  144 |       await page.getByTestId(appointmentTarget).click();
+  145 |     } else {
+  146 |       await appointmentTarget.click();
+  147 |     }
+  148 | 
+  149 |     await expect(page.getByTestId('booking-dialog')).toBeVisible();
+  150 |     await this.selectRadixOption(
+  151 |       page,
+  152 |       'appointment-status-select',
+  153 |       `appointment-status-option-${newStatus}`,
+  154 |     );
+  155 |     await page.getByTestId('booking-submit-btn').click();
+  156 |     await expect(page.getByTestId('booking-dialog')).not.toBeVisible();
+  157 |   },
+  158 | };
+  159 | 
 ```

@@ -570,6 +570,9 @@ export function WeeklyScheduler({ onCreateAppointment, onAppointmentClick, refre
                   return (
                     <div
                       data-testid={testId}
+                      data-slot-day={start?.getDay()}
+                      data-slot-time={label}
+                      data-working-day={isEnabled ? 'true' : 'false'}
                       aria-disabled={isEnabled ? undefined : 'true'}
                       onDrop={onDrop}
                       onDragOver={(event) => {

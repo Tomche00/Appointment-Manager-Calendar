@@ -2,7 +2,7 @@
 // Page-Object style helper for the booking flow.
 // Tests use this instead of duplicating selectors.
 
-import { Page, expect } from '@playwright/test';
+import { Locator, Page, expect } from '@playwright/test';
 import { nextWorkingSlot } from '../test-data/seed';
 
 export interface BookingOptions {
@@ -137,13 +137,22 @@ export const bookingHelper = {
 
   async changeStatus(
     page: Page,
-    appointmentTestId: string,
+    appointmentTarget: string | Locator,
     newStatus: 'scheduled' | 'completed' | 'cancelled' | 'no-show',
   ): Promise<void> {
-    await page.getByTestId(appointmentTestId).click();
-    await expect(page.getByTestId('appointment-detail-dialog')).toBeVisible();
-    await this.selectRadixOption(page, 'status-select', `status-option-${newStatus}`);
-    await page.getByTestId('save-status-btn').click();
-    await expect(page.getByTestId('appointment-detail-dialog')).not.toBeVisible();
+    if (typeof appointmentTarget === 'string') {
+      await page.getByTestId(appointmentTarget).click();
+    } else {
+      await appointmentTarget.click();
+    }
+
+    await expect(page.getByTestId('booking-dialog')).toBeVisible();
+    await this.selectRadixOption(
+      page,
+      'appointment-status-select',
+      `appointment-status-option-${newStatus}`,
+    );
+    await page.getByTestId('booking-submit-btn').click();
+    await expect(page.getByTestId('booking-dialog')).not.toBeVisible();
   },
 };

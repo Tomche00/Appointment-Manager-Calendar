@@ -10,6 +10,13 @@ import { appointmentsStorage, patientsStorage } from '@/lib/storage';
 import { useI18n } from '@/i18n';
 import { useToast } from '@/hooks/use-toast';
 
+const rangesOverlap = (
+  startA: number,
+  endA: number,
+  startB: number,
+  endB: number
+) => startA < endB && startB < endA;
+
 const Index = () => {
   const { t } = useI18n();
   const { toast } = useToast();
@@ -139,6 +146,7 @@ const Index = () => {
   const handleSaveAppointment = async (data: any) => {
     try {
       const patientsArr = await patientsStorage.getAll().catch(() => []);
+      const existingAppointments = await appointmentsStorage.getAll().catch(() => []);
       const patientObj = patientsArr.find((p: any) => {
         const id = p.id ?? p._id ?? p.patientId ?? String(p.email ?? p.name ?? '');
         return id === data.patientId;
@@ -152,10 +160,36 @@ const Index = () => {
       // normalize dates to ISO strings
       const startISO = new Date(data.start).toISOString();
       const endISO = new Date(data.end).toISOString();
+      const startMs = new Date(startISO).getTime();
+      const endMs = new Date(endISO).getTime();
       const durationMs = new Date(endISO).getTime() - new Date(startISO).getTime();
       const durationMinutes = Math.round(durationMs / (1000 * 60));
       // Map to valid durations: 30, 60, or 120
       const validDuration = durationMinutes <= 45 ? 30 : durationMinutes <= 90 ? 60 : 120 as 30 | 60 | 120;
+
+      const conflictingAppointment = existingAppointments.find((appointment: any) => {
+        if (appointment.id === selectedAppointment?.id) {
+          return false;
+        }
+
+        const appointmentStart = new Date(appointment.startTime ?? appointment.start).getTime();
+        const appointmentEnd = new Date(appointment.endTime ?? appointment.end).getTime();
+
+        if (!Number.isFinite(appointmentStart) || !Number.isFinite(appointmentEnd)) {
+          return false;
+        }
+
+        return rangesOverlap(startMs, endMs, appointmentStart, appointmentEnd);
+      });
+
+      if (conflictingAppointment) {
+        toast({
+          title: t('common.error'),
+          description: 'This time range overlaps an existing appointment.',
+          variant: 'destructive',
+        });
+        return;
+      }
 
       if (selectedAppointment && selectedAppointment.id) {
         // update

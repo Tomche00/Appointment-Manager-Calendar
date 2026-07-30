@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -68,7 +68,7 @@ export function TabbedSettingsPanel() {
   const { toast } = useToast();
   const apiHealthUrl = buildApiUrl('/health');
 
-  const loadApiHealth = async () => {
+  const loadApiHealth = useCallback(async () => {
     setApiHealthLoading(true);
     setApiHealthError(null);
 
@@ -88,7 +88,7 @@ export function TabbedSettingsPanel() {
     } finally {
       setApiHealthLoading(false);
     }
-  };
+  }, [t]);
   
   useEffect(() => {
     const loadSettings = async () => {
@@ -96,8 +96,8 @@ export function TabbedSettingsPanel() {
       setSettings(data);
     };
     loadSettings();
-    loadApiHealth();
-  }, []);
+    void loadApiHealth();
+  }, [loadApiHealth]);
 
   const handleSave = async () => {
     try {
@@ -219,12 +219,12 @@ export function TabbedSettingsPanel() {
                   setSettings({ ...settings, locale: value as AppLocale })
                 }
               >
-                <SelectTrigger className="max-w-xs">
+                <SelectTrigger data-testid="settings-locale-select" className="max-w-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="en">{t('settings.langEnglish')}</SelectItem>
-                  <SelectItem value="mk">{t('settings.langMacedonian')}</SelectItem>
+                  <SelectItem data-testid="settings-locale-option-en" value="en">{t('settings.langEnglish')}</SelectItem>
+                  <SelectItem data-testid="settings-locale-option-mk" value="mk">{t('settings.langMacedonian')}</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-sm text-muted-foreground">{t('settings.languageHint')}</p>
@@ -256,6 +256,7 @@ export function TabbedSettingsPanel() {
                   <Label htmlFor="startTime">{t('settings.startTime')}</Label>
                   <Input
                     id="startTime"
+                    data-testid="settings-start-time-input"
                     type="time"
                     value={settings.startTime}
                     onChange={(e) => setSettings({ ...settings, startTime: e.target.value })}
@@ -265,6 +266,7 @@ export function TabbedSettingsPanel() {
                   <Label htmlFor="endTime">{t('settings.endTime')}</Label>
                   <Input
                     id="endTime"
+                    data-testid="settings-end-time-input"
                     type="time"
                     value={settings.endTime}
                     onChange={(e) => setSettings({ ...settings, endTime: e.target.value })}
@@ -290,13 +292,13 @@ export function TabbedSettingsPanel() {
                     value={String(settings.timeSlotMinutes ?? 30)}
                     onValueChange={(value) => setSettings({ ...settings, timeSlotMinutes: parseInt(value) as any })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger data-testid="settings-slot-interval-select">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="15">{t('settings.slot15')}</SelectItem>
-                      <SelectItem value="30">{t('settings.slot30')}</SelectItem>
-                      <SelectItem value="60">{t('settings.slot60')}</SelectItem>
+                      <SelectItem data-testid="settings-slot-interval-option-15" value="15">{t('settings.slot15')}</SelectItem>
+                      <SelectItem data-testid="settings-slot-interval-option-30" value="30">{t('settings.slot30')}</SelectItem>
+                      <SelectItem data-testid="settings-slot-interval-option-60" value="60">{t('settings.slot60')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -319,6 +321,8 @@ export function TabbedSettingsPanel() {
                   return (
                     <div
                       key={day.id}
+                      data-testid={`working-day-toggle-${day.shortKey}`}
+                      data-selected={isSelected ? 'true' : 'false'}
                       onClick={() => toggleWorkingDay(day.id)}
                       className={`
                         p-3 text-center rounded-lg border-2 cursor-pointer transition-all

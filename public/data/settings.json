@@ -1,14 +1,15 @@
 {
-  "locale": "en",
+  "locale": "mk",
   "workingDays": [
     1,
     2,
     3,
     4,
-    5
+    5,
+    6
   ],
-  "startTime": "09:00",
-  "endTime": "17:00",
+  "startTime": "07:00",
+  "endTime": "16:00",
   "appointmentSizes": {
     "half": {
       "duration": 30,
@@ -24,7 +25,7 @@
     }
   },
   "breakTime": 15,
-  "timeSlotMinutes": 15,
+  "timeSlotMinutes": 60,
   "notifications": {
     "emailWebhookUrl": "",
     "smsWebhookUrl": "",
@@ -35,5 +36,6 @@
     "enableSameDaySMS": true,
     "emailTemplate": "",
     "smsTemplate": ""
-  }
+  },
+  "practiceName": "Test Clinic QA"
 }

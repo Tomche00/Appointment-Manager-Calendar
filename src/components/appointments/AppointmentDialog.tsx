@@ -24,8 +24,20 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { CalendarDays, Clock3, ClipboardList, FileText, UserRound } from "lucide-react";
 import { patientsStorage } from "@/lib/storage";
+import type { Appointment, Patient as StoredPatient } from "@/types/appointment";
+import { useToast } from "@/hooks/use-toast";
 
 const appointmentSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -39,8 +51,19 @@ const appointmentSchema = z.object({
 });
 
 type FormData = z.infer<typeof appointmentSchema>;
+type AppointmentDuration = NonNullable<FormData["duration"]>;
+type AppointmentType = NonNullable<FormData["type"]>;
+type AppointmentStatus = NonNullable<FormData["status"]>;
 
-type Patient = { id: string; name: string };
+type PatientOption = { id: string; name: string };
+type AppointmentDialogAppointment = Partial<Appointment> & {
+  duration?: AppointmentDuration | number;
+  start?: string;
+  end?: string;
+};
+type AppointmentDialogSubmitData = FormData & {
+  patientName?: string;
+};
 
 type Props = {
   open: boolean;
@@ -49,16 +72,16 @@ type Props = {
   mode?: "create" | "edit";
   // legacy initial values
   initialValues?: Partial<FormData>;
-  patients?: Patient[];
+  patients?: PatientOption[];
   onSubmit?: (data: FormData) => Promise<void> | void;
   saving?: boolean;
   // added compatibility props
   selectedDate?: Date | null;
-  onAppointmentCreated?: (data: any) => void;
-  onUpdated?: (data: any) => void;
+  onAppointmentCreated?: (data: AppointmentDialogSubmitData) => void;
+  onUpdated?: (data: AppointmentDialogSubmitData) => void;
   onDelete?: () => Promise<void> | void;
   // if provided, dialog acts as edit form
-  appointment?: any;
+  appointment?: AppointmentDialogAppointment;
   refreshTrigger?: number;
 };
 
@@ -102,12 +125,14 @@ export default function AppointmentDialog({
   const mergedInitial = useMemo<Partial<FormData> | undefined>(() => {
     if (!appointment) return initialValues;
 
+    const normalizedDuration = String(appointment.duration ?? "30") as AppointmentDuration;
+
     return {
       title: appointment.title,
       patientId: appointment.patientId ?? null,
       type: appointment.type ?? "consultation",
       status: appointment.status ?? "scheduled",
-      duration: appointment.duration ? String(appointment.duration) : "30",
+      duration: normalizedDuration,
       start: appointment.startTime ?? appointment.start,
       end: appointment.endTime ?? appointment.end,
       notes: appointment.notes ?? "",
@@ -120,13 +145,13 @@ export default function AppointmentDialog({
     const defaultStart = appointment
       ? new Date(mergedInitial?.start ?? rawDefaultStart)
       : roundToInterval(rawDefaultStart, 15);
-    const duration = String((mergedInitial as any)?.duration ?? "30") as FormData["duration"];
+    const duration = String(mergedInitial?.duration ?? "30") as AppointmentDuration;
 
     return {
       title: mergedInitial?.title ?? "",
       patientId: mergedInitial?.patientId ?? null,
-      type: ((mergedInitial as any)?.type ?? "consultation") as FormData["type"],
-      status: ((mergedInitial as any)?.status ?? "scheduled") as FormData["status"],
+      type: (mergedInitial?.type ?? "consultation") as AppointmentType,
+      status: (mergedInitial?.status ?? "scheduled") as AppointmentStatus,
       duration,
       start: mergedInitial?.start
         ? toDateTimeLocal(mergedInitial.start)
@@ -150,7 +175,9 @@ export default function AppointmentDialog({
   const statusValue = watch("status");
   const patientIdValue = watch("patientId");
   // local patients state: prefer prop but fall back to the configured storage source
-  const [localPatients, setLocalPatients] = useState<Patient[]>(patients ?? []);
+  const [localPatients, setLocalPatients] = useState<PatientOption[]>(patients ?? []);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (startValue && durationValue) {
@@ -198,7 +225,7 @@ export default function AppointmentDialog({
     const loadPatients = async () => {
       try {
         const storedPatients = await patientsStorage.getAll();
-        const mapped = storedPatients.map((p: any) => {
+        const mapped = storedPatients.map((p: StoredPatient & { _id?: string; patientId?: string; name?: string }) => {
           const id = p.id ?? p._id ?? p.patientId ?? String(p.email ?? p.name ?? Math.random());
           const fullName = `${p.firstName ?? ""} ${p.lastName ?? ""}`.trim();
           const name = (p.name ?? fullName) || p.email || "Unknown";
@@ -225,7 +252,10 @@ export default function AppointmentDialog({
   const submit = async (data: FormData) => {
     // enrich with patientName if available
     const patient = (localPatients || patients).find((p) => p.id === data.patientId);
-    const enriched: any = { ...data, patientName: patient ? patient.name : undefined };
+    const enriched: AppointmentDialogSubmitData = {
+      ...data,
+      patientName: patient ? patient.name : undefined,
+    };
 
     if (effectiveMode === "create") {
       if (onAppointmentCreated) {
@@ -245,6 +275,23 @@ export default function AppointmentDialog({
       onOpenChange(false);
     } catch (e) {
       // ignore
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!onDelete) {
+      return;
+    }
+
+    try {
+      await onDelete();
+      setDeleteConfirmOpen(false);
+    } catch (error) {
+      toast({
+        title: "Delete failed",
+        description: error instanceof Error ? error.message : "Unable to delete appointment",
+        variant: "destructive",
+      });
     }
   };
 
@@ -320,9 +367,12 @@ export default function AppointmentDialog({
                     <Label htmlFor="type">Type</Label>
                     <Select
                       onValueChange={(val) =>
-                        setValue("type", (val ?? "consultation") as any, { shouldDirty: true, shouldValidate: true })
+                        setValue("type", (val ?? "consultation") as AppointmentType, {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        })
                       }
-                      value={(watch("type") as any) ?? "consultation"}
+                      value={watch("type") ?? "consultation"}
                     >
                       <SelectTrigger
                         id="type"
@@ -343,9 +393,12 @@ export default function AppointmentDialog({
                     <Label htmlFor="duration">Duration</Label>
                     <Select
                       onValueChange={(val) =>
-                        setValue("duration", (val ?? "30") as any, { shouldDirty: true, shouldValidate: true })
+                        setValue("duration", (val ?? "30") as AppointmentDuration, {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        })
                       }
-                      value={(watch("duration") as any) ?? "30"}
+                      value={watch("duration") ?? "30"}
                     >
                       <SelectTrigger
                         id="duration"
@@ -377,14 +430,18 @@ export default function AppointmentDialog({
                       }
                       value={statusValue ?? "scheduled"}
                     >
-                      <SelectTrigger id="status" className="h-10 border-border/70 bg-background/80">
+                      <SelectTrigger
+                        id="status"
+                        data-testid="appointment-status-select"
+                        className="h-10 border-border/70 bg-background/80"
+                      >
                         <SelectValue placeholder="Select status" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="scheduled">Scheduled</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
-                        <SelectItem value="no-show">No-show</SelectItem>
+                        <SelectItem value="scheduled" data-testid="appointment-status-option-scheduled">Scheduled</SelectItem>
+                        <SelectItem value="completed" data-testid="appointment-status-option-completed">Completed</SelectItem>
+                        <SelectItem value="cancelled" data-testid="appointment-status-option-cancelled">Cancelled</SelectItem>
+                        <SelectItem value="no-show" data-testid="appointment-status-option-no-show">No-show</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -402,6 +459,7 @@ export default function AppointmentDialog({
                       </Label>
                       <Input
                         id="start"
+                        data-testid="appointment-start-input"
                         type="datetime-local"
                         {...register("start")}
                         className="h-10 border-border/70 bg-background/80"
@@ -415,6 +473,7 @@ export default function AppointmentDialog({
                       </Label>
                       <Input
                         id="end"
+                        data-testid="appointment-end-input"
                         type="datetime-local"
                         {...register("end")}
                         className="h-10 border-border/70 bg-background/80"
@@ -443,7 +502,13 @@ export default function AppointmentDialog({
 
             <DialogFooter className="gap-3 px-5 py-3 sm:px-6">
               {effectiveMode === "edit" && onDelete && (
-                <Button type="button" variant="destructive" onClick={() => void onDelete()} className="h-10">
+                <Button
+                  type="button"
+                  variant="destructive"
+                  data-testid="delete-appointment-btn"
+                  onClick={() => setDeleteConfirmOpen(true)}
+                  className="h-10"
+                >
                   Delete
                 </Button>
               )}
@@ -462,6 +527,22 @@ export default function AppointmentDialog({
           </form>
         </div>
       </DialogContent>
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent data-testid="delete-appointment-confirm-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete appointment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. The appointment will be removed from the schedule.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="cancel-delete-btn">Cancel</AlertDialogCancel>
+            <AlertDialogAction data-testid="confirm-delete-btn" onClick={() => void handleDelete()}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

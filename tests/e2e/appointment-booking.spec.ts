@@ -137,7 +137,7 @@ test.describe('Appointment Booking — Status Lifecycle', () => {
           .filter({ hasText: PATIENTS.alice.firstName })
           .first();
 
-        await booking.changeStatus(page, appointmentBlock.toString(), status);
+        await booking.changeStatus(page, appointmentBlock, status);
 
         // Verify CSS class reflects the new status (colour coding)
         await expect(appointmentBlock).toHaveAttribute('data-status', status);

@@ -27,7 +27,7 @@ export function AppointmentCalendar({ onCreateAppointment, onAppointmentClick }:
   }, []);
   
   const selectedDateAppointments = appointments.filter(apt => 
-    isSameDay(new Date(apt.date), selectedDate)
+    isSameDay(new Date(apt.startTime), selectedDate)
   ).sort((a, b) => a.startTime.localeCompare(b.startTime));
 
   const getDurationColor = (duration: number) => {
@@ -50,7 +50,7 @@ export function AppointmentCalendar({ onCreateAppointment, onAppointmentClick }:
   };
 
   const hasAppointments = (date: Date) => {
-    return appointments.some(apt => isSameDay(new Date(apt.date), date));
+    return appointments.some(apt => isSameDay(new Date(apt.startTime), date));
   };
 
   return (

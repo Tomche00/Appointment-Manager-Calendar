@@ -28,10 +28,10 @@ interface MedicalFixtures {
 
 export const test = base.extend<MedicalFixtures>({
   // Expose helpers as fixtures for dependency injection
-  storage: async (_args, use) => { await use(storageHelper); },
-  booking: async (_args, use) => { await use(bookingHelper); },
-  patients: async (_args, use) => { await use(patientHelper); },
-  apiMock: async (_args, use) => { await use(apiMockHelper); },
+  storage: async ({}, use) => { await use(storageHelper); },
+  booking: async ({}, use) => { await use(bookingHelper); },
+  patients: async ({}, use) => { await use(patientHelper); },
+  apiMock: async ({}, use) => { await use(apiMockHelper); },
 
   // Page with Alice & Bob pre-seeded — most tests start here
   pageWithPatients: async ({ browser }, use) => {

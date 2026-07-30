@@ -9,6 +9,15 @@ import { appointmentsStorage, patientsStorage, settingsStorage } from '@/lib/sto
 import { useToast } from '@/hooks/use-toast';
 import { useI18n } from '@/i18n';
 
+const isScheduledOnDate = (appointment: Appointment, isoDate: string) => {
+  const start = new Date(appointment.startTime);
+  return (
+    Number.isFinite(start.getTime()) &&
+    start.toISOString().split('T')[0] === isoDate &&
+    appointment.status === 'scheduled'
+  );
+};
+
 export function NotificationManager() {
   const { t } = useI18n();
   const [isLoading, setIsLoading] = useState(false);
@@ -47,7 +56,7 @@ export function NotificationManager() {
   const getTodayAppointments = async () => {
     const today = new Date().toISOString().split('T')[0];
     const appointments = await appointmentsStorage.getAll();
-    return appointments.filter(app => app.date === today && app.status === 'scheduled');
+    return appointments.filter((app) => isScheduledOnDate(app, today));
   };
 
   const getTomorrowAppointments = async () => {
@@ -55,7 +64,7 @@ export function NotificationManager() {
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowStr = tomorrow.toISOString().split('T')[0];
     const appointments = await appointmentsStorage.getAll();
-    return appointments.filter(app => app.date === tomorrowStr && app.status === 'scheduled');
+    return appointments.filter((app) => isScheduledOnDate(app, tomorrowStr));
   };
 
   const [todayCount, setTodayCount] = useState(0);
