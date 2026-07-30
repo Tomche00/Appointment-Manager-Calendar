@@ -31,6 +31,7 @@ const appointmentSchema = z.object({
   title: z.string().min(1, "Title is required"),
   patientId: z.string().nullable(),
   type: z.enum(["consultation", "follow-up", "procedure"]).optional(),
+  status: z.enum(["scheduled", "completed", "cancelled", "no-show"]).optional(),
   duration: z.enum(["30", "60", "120"]).optional(),
   start: z.string().min(1, "Start is required"),
   end: z.string().min(1, "End is required"),
@@ -55,6 +56,7 @@ type Props = {
   selectedDate?: Date | null;
   onAppointmentCreated?: (data: any) => void;
   onUpdated?: (data: any) => void;
+  onDelete?: () => Promise<void> | void;
   // if provided, dialog acts as edit form
   appointment?: any;
   refreshTrigger?: number;
@@ -90,6 +92,7 @@ export default function AppointmentDialog({
   selectedDate = null,
   onAppointmentCreated,
   onUpdated,
+  onDelete,
   appointment,
   refreshTrigger = 0,
 }: Props) {
@@ -103,6 +106,7 @@ export default function AppointmentDialog({
       title: appointment.title,
       patientId: appointment.patientId ?? null,
       type: appointment.type ?? "consultation",
+      status: appointment.status ?? "scheduled",
       duration: appointment.duration ? String(appointment.duration) : "30",
       start: appointment.startTime ?? appointment.start,
       end: appointment.endTime ?? appointment.end,
@@ -122,6 +126,7 @@ export default function AppointmentDialog({
       title: mergedInitial?.title ?? "",
       patientId: mergedInitial?.patientId ?? null,
       type: ((mergedInitial as any)?.type ?? "consultation") as FormData["type"],
+      status: ((mergedInitial as any)?.status ?? "scheduled") as FormData["status"],
       duration,
       start: mergedInitial?.start
         ? toDateTimeLocal(mergedInitial.start)
@@ -142,6 +147,7 @@ export default function AppointmentDialog({
   const startValue = watch("start");
   const durationValue = watch("duration");
   const endValue = watch("end");
+  const statusValue = watch("status");
   const patientIdValue = watch("patientId");
   // local patients state: prefer prop but fall back to the configured storage source
   const [localPatients, setLocalPatients] = useState<Patient[]>(patients ?? []);
@@ -245,7 +251,7 @@ export default function AppointmentDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="overflow-hidden border-border/70 p-0 shadow-2xl sm:max-w-[800px]">
-        <div className="max-h-[600px] overflow-y-auto">
+        <div className="max-h-[600px] overflow-y-auto" data-testid="booking-dialog">
           <div className="border-b border-border/60 bg-gradient-to-br from-primary/10 via-background to-background px-5 py-4 sm:px-6">
             <DialogHeader className="space-y-2 text-left">
               <div className="flex items-start gap-3">
@@ -254,7 +260,7 @@ export default function AppointmentDialog({
                 </div>
                 <div className="space-y-1">
                   <DialogTitle className="text-lg font-semibold tracking-tight">
-                    Create Appointment
+                    {effectiveMode === "create" ? "Create Appointment" : "Edit Appointment"}
                   </DialogTitle>
                   <DialogDescription className="max-w-2xl text-xs leading-relaxed">
                     Book a patient, choose the visit type and duration, and keep the schedule aligned automatically.
@@ -288,12 +294,16 @@ export default function AppointmentDialog({
                       }
                       value={watch("patientId") ?? undefined}
                     >
-                      <SelectTrigger id="patientId" className="h-10 border-border/70 bg-background/80">
+                      <SelectTrigger
+                        id="patientId"
+                        data-testid="patient-select"
+                        className="h-10 border-border/70 bg-background/80"
+                      >
                         <SelectValue placeholder="Select patient" />
                       </SelectTrigger>
                       <SelectContent>
                         {localPatients.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
+                          <SelectItem key={p.id} value={p.id} data-testid={`patient-option-${p.id}`}>
                             {p.name}
                           </SelectItem>
                         ))}
@@ -314,13 +324,17 @@ export default function AppointmentDialog({
                       }
                       value={(watch("type") as any) ?? "consultation"}
                     >
-                      <SelectTrigger id="type" className="h-10 border-border/70 bg-background/80">
+                      <SelectTrigger
+                        id="type"
+                        data-testid="appointment-type-select"
+                        className="h-10 border-border/70 bg-background/80"
+                      >
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="consultation">Consultation</SelectItem>
-                        <SelectItem value="follow-up">Follow-up</SelectItem>
-                        <SelectItem value="procedure">Procedure</SelectItem>
+                        <SelectItem value="consultation" data-testid="appointment-type-option-consultation">Consultation</SelectItem>
+                        <SelectItem value="follow-up" data-testid="appointment-type-option-follow-up">Follow-up</SelectItem>
+                        <SelectItem value="procedure" data-testid="appointment-type-option-procedure">Procedure</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -333,18 +347,49 @@ export default function AppointmentDialog({
                       }
                       value={(watch("duration") as any) ?? "30"}
                     >
-                      <SelectTrigger id="duration" className="h-10 border-border/70 bg-background/80">
+                      <SelectTrigger
+                        id="duration"
+                        data-testid="duration-select"
+                        className="h-10 border-border/70 bg-background/80"
+                      >
                         <SelectValue placeholder="Select duration" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="30">Half Hour (30 min)</SelectItem>
-                        <SelectItem value="60">Full Hour (60 min)</SelectItem>
-                        <SelectItem value="120">Double Hour (120 min)</SelectItem>
+                        <SelectItem value="30" data-testid="duration-option-30">Half Hour (30 min)</SelectItem>
+                        <SelectItem value="60" data-testid="duration-option-60">Full Hour (60 min)</SelectItem>
+                        <SelectItem value="120" data-testid="duration-option-120">Double Hour (120 min)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
               </section>
+
+              {effectiveMode === "edit" && (
+                <section className="rounded-2xl border border-border/60 bg-muted/20 p-3 shadow-sm">
+                  <div className="space-y-1.5 pr-3">
+                    <Label htmlFor="status">Status</Label>
+                    <Select
+                      onValueChange={(val) =>
+                        setValue("status", (val ?? "scheduled") as FormData["status"], {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        })
+                      }
+                      value={statusValue ?? "scheduled"}
+                    >
+                      <SelectTrigger id="status" className="h-10 border-border/70 bg-background/80">
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="scheduled">Scheduled</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                        <SelectItem value="no-show">No-show</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </section>
+              )}
 
               {/* Box 3: Date (start/end) and Note */}
               <section className="rounded-2xl border border-border/60 bg-muted/20 p-3 shadow-sm">
@@ -384,6 +429,7 @@ export default function AppointmentDialog({
                     </Label>
                     <Textarea
                       id="notes"
+                      data-testid="appointment-notes"
                       {...register("notes")}
                       rows={4}
                       className="min-h-[110px] border-border/70 bg-background/80"
@@ -396,10 +442,20 @@ export default function AppointmentDialog({
             <Separator />
 
             <DialogFooter className="gap-3 px-5 py-3 sm:px-6">
+              {effectiveMode === "edit" && onDelete && (
+                <Button type="button" variant="destructive" onClick={() => void onDelete()} className="h-10">
+                  Delete
+                </Button>
+              )}
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="h-10 border-border/70">
                 Cancel
               </Button>
-              <Button type="submit" disabled={saving || !formState.isValid} className="h-10 px-5 shadow-sm">
+              <Button
+                type="submit"
+                data-testid="booking-submit-btn"
+                disabled={saving || !formState.isValid}
+                className="h-10 px-5 shadow-sm"
+              >
                 {saving ? "Saving..." : effectiveMode === "create" ? "Create" : "Save"}
               </Button>
             </DialogFooter>

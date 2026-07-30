@@ -6,16 +6,15 @@ import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { CalendarIcon, ChevronLeft, ChevronRight, Clock, GripVertical, Plus, RotateCcw } from 'lucide-react';
-import { addWeeks, endOfWeek, format, startOfWeek } from 'date-fns';
+import { addDays, addWeeks, endOfWeek, format, startOfWeek } from 'date-fns';
 import { Appointment } from '@/types/appointment';
-import { appointmentsStorage, settingsStorage } from '@/lib/storage';
+import { appointmentsStorage, buildApiUrl, settingsStorage } from '@/lib/storage';
 import { GoogleCalendarSync } from './GoogleCalendarSync';
 import { useToast } from '@/hooks/use-toast';
 import { useI18n } from '@/i18n';
 import { cn } from '@/lib/utils';
 
 const SCHEDULER_VIEW_DATE_KEY = 'scheduler_view_week_anchor';
-const GOOGLE_CALENDAR_API = 'http://localhost:3001/api/calendar/events';
 
 function readStoredViewDate(): Date {
   try {
@@ -95,6 +94,26 @@ export function WeeklyScheduler({ onCreateAppointment, onAppointmentClick, refre
       `${format(weekStart, 'd MMM', { locale: dateFnsLocale })} – ${format(weekEnd, 'd MMM yyyy', { locale: dateFnsLocale })}`,
     [weekStart, weekEnd, dateFnsLocale]
   );
+  const workingDays = useMemo<number[]>(
+    () =>
+      Array.isArray(settings.workingDays) && settings.workingDays.length > 0
+        ? settings.workingDays
+        : [1, 2, 3, 4, 5],
+    [settings.workingDays]
+  );
+
+  const isWorkingDay = (date: Date) => workingDays.includes(date.getDay());
+
+  const getNextWorkingDate = (date: Date) => {
+    for (let offset = 0; offset < 7; offset += 1) {
+      const candidate = addDays(date, offset);
+      if (isWorkingDay(candidate)) {
+        return candidate;
+      }
+    }
+
+    return date;
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -146,7 +165,9 @@ export function WeeklyScheduler({ onCreateAppointment, onAppointmentClick, refre
   const fetchGoogleEvents = async () => {
     setGoogleReauthRequired(false);
     try {
-      const response = await fetch(`${GOOGLE_CALENDAR_API}?start=${weekStart.toISOString()}&end=${weekEnd.toISOString()}`);
+      const response = await fetch(
+        `${buildApiUrl('/google/events')}?startDate=${weekStart.toISOString()}&endDate=${weekEnd.toISOString()}`
+      );
       if (response.status === 401) {
         setGoogleReauthRequired(true);
         return;
@@ -237,6 +258,10 @@ export function WeeklyScheduler({ onCreateAppointment, onAppointmentClick, refre
   };
 
   const handleCellClick = (start: Date, end: Date) => {
+    if (!isWorkingDay(start)) {
+      return;
+    }
+
     console.log('Calendar cell clicked:', start, end);
     onCreateAppointment(start);
   };
@@ -249,6 +274,15 @@ export function WeeklyScheduler({ onCreateAppointment, onAppointmentClick, refre
   ) => {
     const apt = (originalEvent?.appointment ?? originalEvent) as Appointment;
     try {
+      if (!isWorkingDay(updatedEvent.start)) {
+        toast({
+          title: t('common.error'),
+          description: 'Appointments can only be scheduled on working days.',
+          variant: 'destructive',
+        });
+        return originalEvent;
+      }
+
       const newStartISO = updatedEvent.start.toISOString();
       const newEndISO = updatedEvent.end.toISOString();
 
@@ -338,7 +372,7 @@ export function WeeklyScheduler({ onCreateAppointment, onAppointmentClick, refre
           </Button>
           <Button
             data-testid="new-appointment-btn"
-            onClick={() => onCreateAppointment(new Date())}
+            onClick={() => onCreateAppointment(getNextWorkingDate(new Date()))}
             className="h-10 shadow-sm transition-shadow hover:shadow-md"
           >
             <Plus className="mr-2 h-4 w-4" />
@@ -409,7 +443,8 @@ export function WeeklyScheduler({ onCreateAppointment, onAppointmentClick, refre
                     weekStartsOn={1}
                     locale={dateFnsLocale}
                     selected={viewDate}
-                    onSelect={(d) => d && setViewDate(d)}
+                    onSelect={(d) => d && isWorkingDay(d) && setViewDate(d)}
+                    disabled={(date) => !isWorkingDay(date)}
                     initialFocus
                     className={cn('p-3 pointer-events-auto')}
                   />
@@ -530,7 +565,7 @@ export function WeeklyScheduler({ onCreateAppointment, onAppointmentClick, refre
 
                   const label = start ? format(start, 'H:mm') : 'unknown';
                   const testId = `time-slot-${label}`;
-                  const isEnabled = Boolean(start && end && onClick);
+                  const isEnabled = Boolean(start && end && onClick && isWorkingDay(start));
 
                   return (
                     <div
@@ -538,10 +573,16 @@ export function WeeklyScheduler({ onCreateAppointment, onAppointmentClick, refre
                       aria-disabled={isEnabled ? undefined : 'true'}
                       onDrop={onDrop}
                       onDragOver={(event) => {
+                        if (!isEnabled) {
+                          return;
+                        }
                         onDragOver?.(event);
                         event.currentTarget.classList.add('bg-primary/10');
                       }}
                       onDragEnter={(event) => {
+                        if (!isEnabled) {
+                          return;
+                        }
                         onDragEnter?.(event);
                         event.currentTarget.classList.add('bg-primary/10');
                       }}
@@ -550,9 +591,14 @@ export function WeeklyScheduler({ onCreateAppointment, onAppointmentClick, refre
                         event.currentTarget.classList.remove('bg-primary/10');
                       }}
                       onClick={() => {
-                        if (start && end && onClick) onClick(start, end);
+                        if (isEnabled && start && end && onClick) onClick(start, end);
                       }}
-                      className="h-full w-full cursor-pointer rounded-sm bg-transparent transition-colors hover:bg-primary/5"
+                      className={cn(
+                        'h-full w-full rounded-sm transition-colors',
+                        isEnabled
+                          ? 'cursor-pointer bg-transparent hover:bg-primary/5'
+                          : 'cursor-not-allowed bg-muted/35 hover:bg-muted/35'
+                      )}
                     />
                   );
                 }

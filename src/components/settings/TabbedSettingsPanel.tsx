@@ -16,6 +16,7 @@ import { GoogleCalendarSync } from '@/components/dashboard/GoogleCalendarSync';
 import { NotificationManager } from '@/components/notifications/NotificationManager';
 import { useI18n } from '@/i18n';
 import type { AppLocale } from '@/i18n/types';
+import { buildApiUrl } from '@/lib/storage';
 
 const DAYS_OF_WEEK = [
   { id: 0, shortKey: 'sun' as const },
@@ -65,16 +66,14 @@ export function TabbedSettingsPanel() {
   const [apiHealthError, setApiHealthError] = useState<string | null>(null);
   const [lastHealthCheck, setLastHealthCheck] = useState<string | null>(null);
   const { toast } = useToast();
-  const apiHealthUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/api/health`
-    : '/api/health';
+  const apiHealthUrl = buildApiUrl('/health');
 
   const loadApiHealth = async () => {
     setApiHealthLoading(true);
     setApiHealthError(null);
 
     try {
-      const response = await fetch('/api/health');
+      const response = await fetch(buildApiUrl('/health'));
       const payload = await response.json().catch(() => null);
 
       if (!response.ok) {

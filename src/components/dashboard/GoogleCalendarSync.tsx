@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Calendar, CheckCircle, ExternalLink, Settings, RotateCcw, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useI18n } from '@/i18n';
+import { buildApiUrl } from '@/lib/storage';
 
 interface GoogleCalendarEvent {
   id: string;
@@ -32,7 +33,7 @@ export function GoogleCalendarSync() {
 
   const checkConnectionStatus = async () => {
     try {
-      const response = await fetch('/api/google/status');
+      const response = await fetch(buildApiUrl('/google/status'));
       const data = await response.json();
       setIsConnected(data.connected);
       if (data.connected) {
@@ -55,7 +56,7 @@ export function GoogleCalendarSync() {
 
     setLoading(true);
     try {
-      const response = await fetch('/api/google/auth', {
+      const response = await fetch(buildApiUrl('/google/auth'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clientId, clientSecret }),
@@ -82,7 +83,7 @@ export function GoogleCalendarSync() {
 
   const handleDisconnect = async () => {
     try {
-      await fetch('/api/google/disconnect', { method: 'DELETE' });
+      await fetch(buildApiUrl('/google/disconnect'), { method: 'DELETE' });
       setIsConnected(false);
       setGoogleEvents([]);
       toast({
@@ -106,7 +107,7 @@ export function GoogleCalendarSync() {
       endDate.setDate(endDate.getDate() + 30); // Next 30 days
 
       const response = await fetch(
-        `/api/google/events?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`
+        `${buildApiUrl('/google/events')}?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`
       );
       
       if (response.ok) {
@@ -122,7 +123,7 @@ export function GoogleCalendarSync() {
 
   const syncAppointmentToGoogle = async (appointment: any) => {
     try {
-      const response = await fetch('/api/google/events', {
+      const response = await fetch(buildApiUrl('/google/events'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ appointment }),

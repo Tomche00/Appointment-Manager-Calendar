@@ -2,6 +2,12 @@ import { Patient, Appointment, AppointmentSettings } from '@/types/appointment';
 import type { AppLocale } from '@/i18n/types';
 
 const trimTrailingSlash = (value: string) => value.replace(/\/+$/, '');
+const LOCAL_HOST_PATTERN = /^(localhost|127(?:\.\d{1,3}){3}|0\.0\.0\.0|::1|\[::1\])$/i;
+const PRIVATE_NETWORK_HOST_PATTERN =
+  /^(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})$/;
+
+const isLikelyLocalBackendHost = (hostname: string) =>
+  LOCAL_HOST_PATTERN.test(hostname) || PRIVATE_NETWORK_HOST_PATTERN.test(hostname);
 
 const resolveApiBaseUrl = () => {
   const configuredBaseUrl = trimTrailingSlash(import.meta.env.VITE_API_BASE_URL ?? '');
@@ -9,10 +15,18 @@ const resolveApiBaseUrl = () => {
     return configuredBaseUrl.endsWith('/api') ? configuredBaseUrl : `${configuredBaseUrl}/api`;
   }
 
+  if (typeof window !== 'undefined') {
+    const { hostname, port, protocol } = window.location;
+    if (port !== '3000' && isLikelyLocalBackendHost(hostname)) {
+      return `${protocol}//${hostname}:3000/api`;
+    }
+  }
+
   return '/api';
 };
 
-const API_BASE_URL = resolveApiBaseUrl();
+export const API_BASE_URL = resolveApiBaseUrl();
+export const buildApiUrl = (endpoint: string) => `${API_BASE_URL}${endpoint}`;
 
 class ApiResponseError extends Error {
   status: number;
@@ -29,7 +43,7 @@ const isJsonResponse = (response: Response) =>
 
 // API helper functions
 const apiCall = async (endpoint: string, options: RequestInit = {}) => {
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+  const response = await fetch(buildApiUrl(endpoint), {
     headers: {
       'Content-Type': 'application/json',
       ...options.headers,

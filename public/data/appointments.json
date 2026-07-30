@@ -47,7 +47,7 @@
     "startTime": "2026-05-24T08:30:00.000Z",
     "endTime": "2026-05-24T09:00:00.000Z",
     "duration": 30,
-    "type": "consultation",
+    "type": "follow-up",
     "status": "scheduled",
     "notes": ""
   },
@@ -57,10 +57,10 @@
     "title": "Tomche",
     "patientId": "f20d5832-9e32-4e8d-9a92-f6d9aff52be3",
     "patientName": "123 123",
-    "startTime": "2026-05-27T07:00:00.000Z",
-    "endTime": "2026-05-27T08:00:00.000Z",
+    "startTime": "2026-05-26T07:15:00.000Z",
+    "endTime": "2026-05-26T08:15:00.000Z",
     "duration": 60,
-    "type": "follow-up",
+    "type": "procedure",
     "status": "scheduled",
     "notes": "sdf asdf sadf sdaf sdafsa df sadf"
   }

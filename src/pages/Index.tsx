@@ -169,7 +169,7 @@ const Index = () => {
           endTime: endISO,
           duration: validDuration,
           notes: data.notes,
-          status: selectedAppointment.status || 'scheduled',
+          status: data.status || selectedAppointment.status || 'scheduled',
           createdAt: selectedAppointment.createdAt || new Date().toISOString()
         };
         await appointmentsStorage.update(selectedAppointment.id, updatedAppt);
@@ -204,6 +204,30 @@ const Index = () => {
       toast({
         title: t('common.error'),
         description: e instanceof Error ? e.message : 'Failed to save appointment',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDeleteAppointment = async () => {
+    if (!selectedAppointment?.id) {
+      return;
+    }
+
+    try {
+      await appointmentsStorage.delete(selectedAppointment.id);
+      setSelectedAppointment(null);
+      setSelectedDate(undefined);
+      setAppointmentDialogOpen(false);
+      handleRefresh();
+      toast({
+        title: 'Appointment deleted',
+      });
+    } catch (e) {
+      console.error('Failed to delete appointment', e);
+      toast({
+        title: t('common.error'),
+        description: e instanceof Error ? e.message : 'Failed to delete appointment',
         variant: 'destructive',
       });
     }
@@ -255,6 +279,7 @@ const Index = () => {
         onAppointmentCreated={handleRefresh}
         onSubmit={handleSaveAppointment}
         onUpdated={handleRefresh}
+        onDelete={handleDeleteAppointment}
         refreshTrigger={refreshTrigger}
       />
       

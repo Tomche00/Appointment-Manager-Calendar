@@ -15,6 +15,7 @@ export interface Patient {
 
 export interface Appointment {
   id: string;
+  title: string;
   patientId: string;
   patientName: string;
   /** ISO timestamp */
