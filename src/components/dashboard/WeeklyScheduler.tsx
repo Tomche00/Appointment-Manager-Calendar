@@ -564,16 +564,27 @@ export function WeeklyScheduler({ onCreateAppointment, onAppointmentClick, refre
                   const onDragLeave = props?.onDragLeave;
 
                   const label = start ? format(start, 'H:mm') : 'unknown';
-                  const testId = `time-slot-${label}`;
-                  const isEnabled = Boolean(start && end && onClick && isWorkingDay(start));
+                  const day = start?.getDay();
+                  // Keep legacy `time-slot-{hour}:00` testid only for the week
+                  // start column so Playwright strict mode has a single match.
+                  const weekStartDay = weekStart.getDay();
+                  const testId = day === weekStartDay ? `time-slot-${label}` : undefined;
+                  // Use the rendered label to determine the hour to avoid
+                  // timezone-related differences between Date.getHours() and the
+                  // displayed slot label.
+                  const hourFromLabel = Number(label.split(':')[0]);
+                  const startHourLocal = parseInt(settings.startTime?.split(':')[0] ?? '8');
+                  const endHourLocal = parseInt(settings.endTime?.split(':')[0] ?? '18');
+                  const isWithinHours = Number.isFinite(hourFromLabel) && hourFromLabel >= startHourLocal && hourFromLabel < endHourLocal;
+                  const isEnabled = Boolean(start && end && onClick && isWorkingDay(start) && isWithinHours);
 
                   return (
                     <div
-                      data-testid={testId}
+                      {...(testId ? { 'data-testid': testId } : {})}
                       data-slot-day={start?.getDay()}
                       data-slot-time={label}
                       data-working-day={isEnabled ? 'true' : 'false'}
-                      aria-disabled={isEnabled ? undefined : 'true'}
+                      aria-disabled={isEnabled ? 'false' : 'true'}
                       onDrop={onDrop}
                       onDragOver={(event) => {
                         if (!isEnabled) {

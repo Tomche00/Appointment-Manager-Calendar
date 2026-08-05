@@ -204,15 +204,32 @@ The API server will run on `http://localhost:3000`
 ```typescript
 // E2E Testing with Playwright
 tests/e2e/
-├── appointment-booking.spec.ts    # User flow testing
-├── google-calendar.spec.ts       # Integration testing
-└── fixtures/                     # Test fixtures and helpers
+├── appointment-booking.spec.ts      # Core booking flow and storage persistence
+├── concurrency.spec.ts              # Multi-tab and race-condition behavior
+├── critical-user-flows.spec.ts      # End-to-end app workflows
+├── data-consistency.spec.ts         # Persistence, reload and storage recovery
+├── drag-drop-rescheduling.spec.ts   # Scheduler drag-and-drop rescheduling
+├── google-calendar.spec.ts          # Google Calendar sync and auth flows
+├── patient-management.spec.ts       # Patient CRUD and search flows
+├── smoke.spec.ts                    # Cross-browser UI sanity checks
+└── fixtures/                        # Playwright fixtures, API mocks and helpers
 ```
 
+### Fixture and Helper Structure
+- `tests/fixtures/base.ts`: shared Playwright fixture setup, seeded localStorage, API routing, and deterministic scheduler state.
+- `tests/utils/bookingHelper.ts`: page object helper for scheduler interactions, booking flows, form submission, and status changes.
+- `tests/utils/storageHelper.ts`: LocalStorage assertions and persistence helpers.
+- `tests/utils/apiMockHelper.ts`: API mock support for Google Calendar and backend endpoints.
+
 **Test Coverage:**
-- **Appointment Booking**: Core flow, validation, status lifecycle, refresh resilience
-- **Google Calendar Integration**: Happy path, failure scenarios, read-only enforcement
-- **Cross-browser**: Chromium (primary), Firefox & WebKit (smoke tests in CI)
+- **Appointment Booking**: full booking lifecycle, inline patient selection, validation, status transitions, and retry/resilience after refresh.
+- **Scheduler Drag-and-Drop**: appointment rescheduling, conflict detection, and disabled slot behavior.
+- **Patient Management**: search, create, edit, and patient data workflows.
+- **Google Calendar Integration**: auth flow, event fetch, sync behavior, failure handling, and connection status.
+- **Data Consistency**: local storage persistence, backend fallback, and reload recovery.
+- **Concurrency**: multi-tab storage synchronization and race-condition handling.
+- **Critical Flows**: combined app scenarios that span scheduling, patients, and settings.
+- **Smoke Tests**: browser sanity checks for core navigation and scheduler rendering.
 
 ### Running Tests
 
