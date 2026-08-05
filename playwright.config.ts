@@ -13,7 +13,7 @@ export default defineConfig({
   ],
 
   use: {
-    baseURL: process.env.BASE_URL ?? 'http://localhost:8081',
+    baseURL: process.env.BASE_URL ?? 'http://localhost:8080',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -55,7 +55,7 @@ export default defineConfig({
 
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:8081',
+    url: 'http://localhost:8080',
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,
   },

@@ -569,13 +569,13 @@ export function WeeklyScheduler({ onCreateAppointment, onAppointmentClick, refre
                   // start column so Playwright strict mode has a single match.
                   const weekStartDay = weekStart.getDay();
                   const testId = day === weekStartDay ? `time-slot-${label}` : undefined;
-                  // Use the rendered label to determine the hour to avoid
-                  // timezone-related differences between Date.getHours() and the
-                  // displayed slot label.
-                  const hourFromLabel = Number(label.split(':')[0]);
-                  const startHourLocal = parseInt(settings.startTime?.split(':')[0] ?? '8');
-                  const endHourLocal = parseInt(settings.endTime?.split(':')[0] ?? '18');
-                  const isWithinHours = Number.isFinite(hourFromLabel) && hourFromLabel >= startHourLocal && hourFromLabel < endHourLocal;
+                  const slotHour = typeof start?.getHours === 'function' ? start.getHours() : NaN;
+                  const slotMinute = typeof start?.getMinutes === 'function' ? start.getMinutes() : 0;
+                  const startHourLocal = parseInt(settings.startTime?.split(':')[0] ?? '8', 10);
+                  const endHourLocal = parseInt(settings.endTime?.split(':')[0] ?? '18', 10);
+                  const isWithinHours = Number.isFinite(slotHour) &&
+                    slotHour >= startHourLocal &&
+                    (slotHour < endHourLocal || (slotHour === endHourLocal && slotMinute === 0));
                   const isEnabled = Boolean(start && end && onClick && isWorkingDay(start) && isWithinHours);
 
                   return (
