@@ -42,10 +42,10 @@ A production-grade medical practice management system built with modern frontend
 - **Medical History Tracking**: Notes and emergency contact information with proper data persistence
 
 ### Google Calendar Integration
-- **OAuth 2.0 Authentication**: Secure Google API integration with token management
-- **Bidirectional Synchronization**: Two-way sync between local appointments and Google Calendar
-- **Event Mapping**: Intelligent translation between internal data model and Google Calendar schema
-- **Error Handling**: Robust error recovery with user-friendly feedback mechanisms
+- **OAuth 2.0 Authentication**: Google API integration with token exchange and token persistence
+- **Calendar Event Fetch**: Loads Google Calendar events into the scheduler view
+- **Appointment Export**: Posts local appointments to Google Calendar when requested
+- **Error Handling**: User-facing messages for sync failures and auth issues
 
 ### Configuration & Customization
 - **Practice Settings**: Configurable working hours, time slots, and business rules
@@ -68,7 +68,7 @@ react-hook-form + Zod             // Form validation
 
 ### Backend
 ```javascript
-Express.js                        // RESTful API server
+Express.js                        // RESTful API server (server/index.js)
 googleapis                        // Google Calendar integration
 CORS                              // Cross-origin resource sharing
 ```
@@ -254,14 +254,14 @@ npm run test:e2e:report
 
 ### GitHub Actions Workflow
 
-The project includes a comprehensive CI/CD pipeline that runs on every push and pull request:
+The project includes a CI pipeline with lint, build, and E2E validation on every push and pull request.
 
 ```yaml
 # .github/workflows/ci.yml
 ├── Lint & Type Check    # ESLint + TypeScript strict mode
 ├── Build                # Production build verification
 ├── E2E Tests            # Playwright tests in CI environment
-└── Deploy               # Automatic deployment on main branch
+└── Deploy               # Example deploy step; provider config must be added
 ```
 
 **Pipeline Stages:**
@@ -318,20 +318,19 @@ npm run test:e2e
 
 ## 🔒 Security Considerations
 
-### Implemented Security Measures
+### Current Security Posture
 
-- **Input Validation**: Zod schemas validate all user inputs
-- **XSS Prevention**: React's built-in XSS protection
-- **CSRF Protection**: Token-based API authentication
-- **OAuth Security**: Secure token storage with httpOnly cookies
-- **Data Encryption**: Sensitive data encrypted at rest (production)
-- **API Rate Limiting**: Prevents abuse and DDoS attacks
+- **Input Validation**: Frontend uses Zod for form validation
+- **XSS Prevention**: React rendering minimizes injection risk
+- **API Authentication**: No production authentication or CSRF protection is implemented yet
+- **Token Storage**: Google tokens are stored in server-side JSON files for local development
+- **Production Hardening**: Encryption-at-rest, rate limiting, and secure cookies are not yet configured
 
 ### HIPAA Compliance Notes
-- **Data Storage**: Patient data stored locally (development) - requires encrypted backend for production
-- **Access Control**: Implement user authentication for multi-user scenarios
-- **Audit Logging**: Track all data access and modifications
-- **Backup Strategy**: Regular encrypted backups with retention policies
+- **Data Storage**: Patient data is stored locally or in server-side JSON during development; production requires a secure database
+- **Access Control**: User authentication is not currently implemented
+- **Audit Logging**: Not implemented at this stage
+- **Backup Strategy**: Export/import is available for development backup only
 
 
 ## 📝 License

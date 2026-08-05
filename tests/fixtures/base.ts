@@ -188,7 +188,9 @@ export const test = base.extend<MedicalFixtures>({
           }
         });
       });
-    } catch (e) {}
+    } catch (e) {
+      // ignore runtime errors during test id cleanup
+    }
 
     await use(page);
     await ctx.close();
@@ -234,7 +236,9 @@ export const test = base.extend<MedicalFixtures>({
           }
         });
       });
-    } catch (e) {}
+    } catch (e) {
+      // ignore runtime errors during test id cleanup
+    }
 
     await use(page);
     await ctx.close();
@@ -263,7 +267,9 @@ export const test = base.extend<MedicalFixtures>({
           }
         });
       });
-    } catch (e) {}
+    } catch (e) {
+      // ignore runtime errors during test id cleanup
+    }
 
     await use(page);
     await ctx.close();

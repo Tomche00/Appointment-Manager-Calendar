@@ -12,61 +12,133 @@
 # Error details
 
 ```
-TimeoutError: locator.click: Timeout 10000ms exceeded.
-Call log:
-  - waiting for getByTestId('nav-scheduler')
+Error: expect(received).toBe(expected) // Object.is equality
 
+Expected: true
+Received: false
 ```
 
 # Page snapshot
 
 ```yaml
-- generic [ref=e3]:
-  - generic [ref=e4]: "[plugin:vite:react-swc] × Expression expected ╭─[/home/tomche/Appointment-Manager-Calendar/src/components/dashboard/WeeklyScheduler.tsx:580:1] 577 │ const endHourLocal = parseInt(settings.endTime?.split(':')[0] ?? '18'); 578 │ const isWithinHours = Number.isFinite(hourFromLabel) && hourFromLabel >= startHourLocal && hourFromLabel < endHourLocal; 579 │ const isEnabled = Boolean(start && end && onClick && isWorkingDay(start) && isWithinHours); 580 │ *** End Patch · ── 581 │ // Debugging: log slot calculation values during tests to help 582 │ // diagnose flaky working-hours detection. 583 │ try { ╰──── × Expression expected ╭─[/home/tomche/Appointment-Manager-Calendar/src/components/dashboard/WeeklyScheduler.tsx:580:1] 577 │ const endHourLocal = parseInt(settings.endTime?.split(':')[0] ?? '18'); 578 │ const isWithinHours = Number.isFinite(hourFromLabel) && hourFromLabel >= startHourLocal && hourFromLabel < endHourLocal; 579 │ const isEnabled = Boolean(start && end && onClick && isWorkingDay(start) && isWithinHours); 580 │ *** End Patch · ─ 581 │ // Debugging: log slot calculation values during tests to help 582 │ // diagnose flaky working-hours detection. 583 │ try { ╰──── × Expected '</', got 'ident' ╭─[/home/tomche/Appointment-Manager-Calendar/src/components/dashboard/WeeklyScheduler.tsx:580:1] 577 │ const endHourLocal = parseInt(settings.endTime?.split(':')[0] ?? '18'); 578 │ const isWithinHours = Number.isFinite(hourFromLabel) && hourFromLabel >= startHourLocal && hourFromLabel < endHourLocal; 579 │ const isEnabled = Boolean(start && end && onClick && isWorkingDay(start) && isWithinHours); 580 │ *** End Patch · ───── 581 │ // Debugging: log slot calculation values during tests to help 582 │ // diagnose flaky working-hours detection. 583 │ try { ╰──── Caused by: Syntax Error"
-  - generic [ref=e5]: /home/tomche/Appointment-Manager-Calendar/src/components/dashboard/WeeklyScheduler.tsx
-  - generic [ref=e6]:
-    - text: Click outside, press Esc key, or fix the code to dismiss.
-    - text: You can also disable this overlay by setting
-    - code [ref=e7]: server.hmr.overlay
-    - text: to
-    - code [ref=e8]: "false"
-    - text: in
-    - code [ref=e9]: vite.config.ts
-    - text: .
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications alt+T"
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e6]:
+        - img [ref=e8]
+        - generic [ref=e12]:
+          - heading "MediCal" [level=1] [ref=e13]
+          - paragraph [ref=e14]: Менаџер за термини
+      - navigation [ref=e15]:
+        - paragraph [ref=e16]: Мени
+        - generic [ref=e17]:
+          - button "Контролна табла" [active] [ref=e18] [cursor=pointer]:
+            - img
+            - text: Контролна табла
+          - button "Пациенти" [ref=e19] [cursor=pointer]:
+            - img
+            - text: Пациенти
+          - button "Поставки" [ref=e20] [cursor=pointer]:
+            - img
+            - text: Поставки
+        - generic [ref=e21]:
+          - paragraph [ref=e22]: Преглед
+          - generic [ref=e23]:
+            - generic [ref=e25]:
+              - generic [ref=e26]:
+                - paragraph [ref=e27]: Вкупно пациенти
+                - paragraph [ref=e28]: "2"
+              - img [ref=e30]
+            - generic [ref=e36]:
+              - generic [ref=e37]:
+                - paragraph [ref=e38]: Вкупно посети
+                - paragraph [ref=e39]: "0"
+              - img [ref=e41]
+            - generic [ref=e44]:
+              - generic [ref=e45]:
+                - paragraph [ref=e46]: Посети овој месец
+                - paragraph [ref=e47]: "0"
+              - img [ref=e49]
+      - generic [ref=e52]:
+        - paragraph [ref=e53]: Самостоен • Флексибилен
+        - paragraph [ref=e54]: Податоците се локално зачувани
+    - main [ref=e55]:
+      - generic [ref=e57]:
+        - generic [ref=e58]: Нема закажани термини
+        - generic [ref=e59]:
+          - generic [ref=e60]:
+            - generic [ref=e61]:
+              - img [ref=e63]
+              - heading "Неделен распоред" [level=2] [ref=e65]
+            - paragraph [ref=e66]: "Работно време: 07:00 - 16:00"
+          - generic [ref=e67]:
+            - button "Google Календар" [ref=e68] [cursor=pointer]:
+              - img
+              - text: Google Календар
+            - button "Нов термин" [ref=e69] [cursor=pointer]:
+              - img
+              - text: Нов термин
+        - generic [ref=e71]:
+          - generic [ref=e72]:
+            - generic [ref=e74]:
+              - button "Претходна недела" [ref=e75] [cursor=pointer]:
+                - img
+              - generic [ref=e76]: 3 авг – 9 авг 2026
+              - button "Следна недела" [ref=e77] [cursor=pointer]:
+                - img
+            - generic [ref=e78]:
+              - button "Оваа недела" [ref=e79] [cursor=pointer]
+              - button "Оди на датум" [ref=e80] [cursor=pointer]:
+                - img
+                - generic [ref=e81]: Оди на датум
+          - generic [ref=e84]:
+            - generic [ref=e85]:
+              - generic [ref=e88]:
+                - paragraph [ref=e89]: "03"
+                - paragraph [ref=e90]: Mon
+              - generic [ref=e92]:
+                - paragraph [ref=e93]: "04"
+                - paragraph [ref=e94]: Tue
+              - generic [ref=e96]:
+                - paragraph [ref=e97]: "05"
+                - paragraph [ref=e98]: Wed
+              - generic [ref=e100]:
+                - paragraph [ref=e101]: "06"
+                - paragraph [ref=e102]: Thu
+              - generic [ref=e104]:
+                - paragraph [ref=e105]: "07"
+                - paragraph [ref=e106]: Fri
+              - generic [ref=e108]:
+                - paragraph [ref=e109]: "08"
+                - paragraph [ref=e110]: Sat
+              - generic [ref=e112]:
+                - paragraph [ref=e113]: "09"
+                - paragraph [ref=e114]: Sun
+            - generic [ref=e115]:
+              - generic [ref=e117]: 07:00
+              - generic [ref=e136]: 08:00
+              - generic [ref=e152]: 09:00
+              - generic [ref=e168]: 10:00
+              - generic [ref=e184]: 11:00
+              - generic [ref=e200]: 12:00
+              - generic [ref=e216]: 13:00
+              - generic [ref=e232]: 14:00
+              - generic [ref=e248]: 15:00
+        - generic [ref=e263]:
+          - heading "Appointment Types" [level=3] [ref=e265]
+          - generic [ref=e267]:
+            - generic [ref=e268]: Консултација
+            - generic [ref=e270]: Контрола
+            - generic [ref=e272]: Процедура
+            - generic [ref=e274]: Google Календар
 ```
 
 # Test source
 
 ```ts
-  1   | // tests/e2e/appointment-booking.spec.ts
-  2   | // Critical path: booking an appointment end-to-end.
-  3   | // Also covers: validation, out-of-hours, storage consistency.
-  4   | 
-  5   | import { test, expect } from '../fixtures/base';
-  6   | import { PATIENTS, APPOINTMENTS, nextWorkingSlot, WORKING_HOURS } from '../test-data/seed';
-  7   | 
-  8   | test.describe('Appointment Booking — Core Flow', () => {
-  9   |   test('books a consultation with an existing patient and persists to storage', async ({
-  10  |     pageWithPatients: page, booking, storage,
-  11  |   }) => {
-  12  |     await test.step('Navigate to scheduler', async () => {
-  13  |       await booking.goToScheduler(page);
-  14  |     });
-  15  | 
-  16  |     await test.step('Open a time slot and fill form', async () => {
-  17  |       await booking.openSlot(page, nextWorkingSlot(1, 10));
-  18  |       await booking.fillBookingForm(page, {
-  19  |         patientId: PATIENTS.alice.id,
-  20  |         type: APPOINTMENTS.consultation.type,
-  21  |         duration: APPOINTMENTS.consultation.duration,
-  22  |         notes: APPOINTMENTS.consultation.notes,
-  23  |         syncToGoogle: false,
-  24  |       });
-  25  |     });
-  26  | 
-  27  |     await test.step('Submit and confirm toast', async () => {
-  28  |       await booking.submit(page);
-  29  |       await expect(page.getByTestId('toast-success')).toBeVisible();
   30  |     });
   31  | 
   32  |     await test.step('Verify appointment appears in scheduler UI', async () => {
@@ -137,8 +209,7 @@ Call log:
   97  |     pageWithPatients: page,
   98  |   }) => {
   99  |     await test.step('Navigate to scheduler', async () => {
-> 100 |       await page.getByTestId('nav-scheduler').click();
-      |                                               ^ TimeoutError: locator.click: Timeout 10000ms exceeded.
+  100 |       await page.getByTestId('nav-scheduler').click();
   101 |     });
   102 | 
   103 |     await test.step('Attempt to click a slot before working hours start', async () => {
@@ -168,7 +239,8 @@ Call log:
   127 |         const dataWorking = await earlySlot.getAttribute('data-working-day');
   128 |         const cls = (await earlySlot.getAttribute('class')) || '';
   129 |         const disabled = aria === 'true' || dataWorking === 'false' || cls.includes('cursor-not-allowed');
-  130 |         expect(disabled).toBe(true);
+> 130 |         expect(disabled).toBe(true);
+      |                          ^ Error: expect(received).toBe(expected) // Object.is equality
   131 |       } else {
   132 |         // Slot not rendered at all = correct behaviour
   133 |         expect(isVisible).toBe(false);
@@ -239,4 +311,8 @@ Call log:
   198 |       await expect(page.getByTestId('booking-dialog')).not.toBeVisible();
   199 |       const countAfter = await storage.count(page, 'appointments');
   200 |       expect(countAfter).toBe(countBefore);
+  201 |     });
+  202 |   });
+  203 | });
+  204 | 
 ```

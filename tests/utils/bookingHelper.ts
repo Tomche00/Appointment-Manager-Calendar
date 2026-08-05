@@ -93,7 +93,9 @@ export const bookingHelper = {
         try {
           const current = await titleInput.inputValue();
           if (!current) await titleInput.fill(`${options.type ?? 'Visit'} ${Date.now()}`);
-        } catch {}
+        } catch {
+          // ignore missing or timing-sensitive title label in the dialog
+        }
     }
 
     // Appointment type
@@ -254,7 +256,9 @@ export const bookingHelper = {
     try {
       await expect(explicit).toBeVisible({ timeout: 1_000 });
       return;
-    } catch {}
+    } catch {
+      // ignore while falling back to alternative validation indicators
+    }
 
     // Look for role='alert' inside the dialog
     const form = page.locator('form').first();
@@ -262,14 +266,18 @@ export const bookingHelper = {
     try {
       await expect(alert).toBeVisible({ timeout: 1_000 });
       return;
-    } catch {}
+    } catch {
+      // ignore while checking other fallback error selectors
+    }
 
     // Look for common error text
     try {
       const text = form.getByText(/required|must|too long|character|invalid/i).first();
       await expect(text).toBeVisible({ timeout: 1_000 });
       return;
-    } catch {}
+    } catch {
+      // ignore while creating a synthetic error indicator
+    }
 
     // If nothing found, create a synthetic error element so tests that
     // assert on a specific error test id can proceed. This mirrors the
