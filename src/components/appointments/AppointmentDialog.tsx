@@ -21,8 +21,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+} from "@/components/ui/select";import { Switch } from '@/components/ui/switch';import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import {
   AlertDialog,
@@ -42,6 +41,7 @@ import { useToast } from "@/hooks/use-toast";
 const appointmentSchema = z.object({
   title: z.string().min(1, "Title is required"),
   patientId: z.string().nullable(),
+  syncToGoogle: z.boolean().optional(),
   type: z.enum(["consultation", "follow-up", "procedure"]).optional(),
   status: z.enum(["scheduled", "completed", "cancelled", "no-show"]).optional(),
   duration: z.enum(["30", "60", "120"]).optional(),
@@ -160,6 +160,7 @@ export default function AppointmentDialog({
         ? toDateTimeLocal(mergedInitial.end)
         : toDateTimeLocal(addMinutes(defaultStart, Number(duration))),
       notes: mergedInitial?.notes ?? "",
+      syncToGoogle: false,
     };
   }, [appointment, mergedInitial, selectedDate]);
 
@@ -173,10 +174,21 @@ export default function AppointmentDialog({
   const durationValue = watch("duration");
   const endValue = watch("end");
   const statusValue = watch("status");
+  const syncToGoogleValue = watch("syncToGoogle");
   const patientIdValue = watch("patientId");
   // local patients state: prefer prop but fall back to the configured storage source
   const [localPatients, setLocalPatients] = useState<PatientOption[]>(patients ?? []);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [showNewPatientPanel, setShowNewPatientPanel] = useState(false);
+  const [newPatientForm, setNewPatientForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    dateOfBirth: '',
+  });
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [submissionErrorId, setSubmissionErrorId] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -195,6 +207,16 @@ export default function AppointmentDialog({
   useEffect(() => {
     if (open) {
       reset(defaultValues);
+      setShowNewPatientPanel(false);
+      setSubmissionError(null);
+      setSubmissionErrorId(null);
+      setNewPatientForm({
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+        dateOfBirth: '',
+      });
     }
   }, [open, reset, defaultValues]);
 
@@ -250,31 +272,67 @@ export default function AppointmentDialog({
   }, [patients, open, refreshTrigger]);
 
   const submit = async (data: FormData) => {
-    // enrich with patientName if available
-    const patient = (localPatients || patients).find((p) => p.id === data.patientId);
-    const enriched: AppointmentDialogSubmitData = {
+    setSubmissionError(null);
+    let patient = (localPatients || patients).find((p) => p.id === data.patientId);
+    const enrichedData: AppointmentDialogSubmitData = {
       ...data,
       patientName: patient ? patient.name : undefined,
+      syncToGoogle: data.syncToGoogle,
     };
+
+    if (!patient && showNewPatientPanel) {
+      const { firstName, lastName, email, phone, dateOfBirth } = newPatientForm;
+      if (!firstName || !lastName || !email || !phone || !dateOfBirth) {
+        setSubmissionError('Please complete the new patient form before continuing.');
+        setSubmissionErrorId('new-patient-panel');
+        return;
+      }
+
+      try {
+        const createdPatient = await patientsStorage.add({
+          firstName,
+          lastName,
+          email,
+          phone,
+          dateOfBirth,
+        });
+        const created: PatientOption = {
+          id: createdPatient.id,
+          name: `${createdPatient.firstName ?? ''} ${createdPatient.lastName ?? ''}`.trim() || createdPatient.email || 'Unknown',
+        };
+        setLocalPatients((current) => [...current, created]);
+        setValue('patientId', created.id, { shouldDirty: true, shouldValidate: true });
+        patient = created;
+        enrichedData.patientName = created.name;
+      } catch (error) {
+        setSubmissionError('Unable to create patient.');
+        setSubmissionErrorId('new-patient-panel');
+        return;
+      }
+    }
 
     if (effectiveMode === "create") {
       if (onAppointmentCreated) {
-        onAppointmentCreated(enriched);
+        onAppointmentCreated(enrichedData);
       }
     } else {
       if (onUpdated) {
-        onUpdated(enriched);
+        onUpdated(enrichedData);
       }
     }
 
-    if (onSubmit) {
-      await onSubmit(enriched);
-    }
-
     try {
+      if (onSubmit) {
+        await onSubmit(enrichedData);
+      }
       onOpenChange(false);
-    } catch (e) {
-      // ignore
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'SlotConflictError') {
+        setSubmissionError(error.message);
+        setSubmissionErrorId('error-slot-conflict');
+        return;
+      }
+      throw error;
     }
   };
 
@@ -356,6 +414,15 @@ export default function AppointmentDialog({
                         ))}
                       </SelectContent>
                     </Select>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      data-testid="create-new-patient-btn"
+                      className="mt-3 h-9 w-full border-border/70 text-sm"
+                      onClick={() => setShowNewPatientPanel(true)}
+                    >
+                      Add new patient
+                    </Button>
                   </div>
                 </div>
               </section>

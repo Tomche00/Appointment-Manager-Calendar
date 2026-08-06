@@ -182,7 +182,7 @@ export function PatientList({ onPatientClick, onCreatePatient, refreshTrigger }:
           {/* Patient List */}
           <div className="grid gap-4 p-4 md:hidden">
             {filteredPatients.length === 0 ? (
-              <Card className="border-border/80 py-12 text-center shadow-none" data-testid="patients-empty-state">
+              <Card className="border-border/80 py-12 text-center shadow-none" data-testid="patients-empty-state-mobile">
                 <CardContent>
                   <User className="mx-auto mb-4 h-16 w-16 text-muted-foreground opacity-50" />
                   <h3 className="mb-2 text-lg font-medium">
@@ -210,7 +210,7 @@ export function PatientList({ onPatientClick, onCreatePatient, refreshTrigger }:
                 return (
                   <Card
                     key={patient.id}
-                    data-testid="patient-row"
+                    data-testid="patient-row-mobile"
                     className="cursor-pointer border-border/70 shadow-sm transition-all hover:border-primary/25 hover:shadow-md"
                     onClick={() => onPatientClick(patient)}
                   >
@@ -267,7 +267,7 @@ export function PatientList({ onPatientClick, onCreatePatient, refreshTrigger }:
 
           <div className="hidden md:block">
             {filteredPatients.length === 0 ? (
-              <div className="p-10 text-center" data-testid="patients-empty-state">
+              <div className="p-10 text-center" data-testid="patients-empty-state-desktop">
                 <User className="mx-auto mb-4 h-16 w-16 text-muted-foreground opacity-50" />
                 <h3 className="mb-2 text-lg font-medium">
                   {searchQuery ? t('patients.noResults') : t('patients.noPatientsYet')}
@@ -304,7 +304,7 @@ export function PatientList({ onPatientClick, onCreatePatient, refreshTrigger }:
                     return (
                       <TableRow
                         key={patient.id}
-                        data-testid="patient-row"
+                          data-testid="patient-row-desktop"
                         className="cursor-pointer border-border/60"
                         onClick={() => onPatientClick(patient)}
                       >
