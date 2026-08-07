@@ -80,7 +80,7 @@
   {
     "id": "7b177f81-e979-4cda-aaa7-8b33ad73eaef",
     "createdAt": "2026-08-05T20:27:24.491Z",
-    "title": "Backend appointment 1786090236136",
+    "title": "Backend appointment 1786098743310",
     "patientId": "f8998589-c0e5-4dcb-8947-51154239562f",
     "patientName": "Backend Patient1785961640502",
     "startTime": "2026-08-03T08:00:00.000Z",
@@ -94,6 +94,19 @@
     "id": "fcf16268-b63b-426b-af1c-1fb14f5a1577",
     "createdAt": "2026-08-07T07:50:20.552Z",
     "title": "consultation 1786089018222",
+    "patientId": "patient-test-001",
+    "patientName": "Alice Thornton",
+    "startTime": "2026-08-03T07:00:00.000Z",
+    "endTime": "2026-08-03T07:30:00.000Z",
+    "duration": 30,
+    "type": "consultation",
+    "status": "scheduled",
+    "notes": ""
+  },
+  {
+    "id": "f6634e9b-50e3-42f2-9c4f-acb40834caf3",
+    "createdAt": "2026-08-07T10:21:57.660Z",
+    "title": "consultation 1786098116935",
     "patientId": "patient-test-001",
     "patientName": "Alice Thornton",
     "startTime": "2026-08-03T07:00:00.000Z",

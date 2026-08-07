@@ -22,19 +22,36 @@ export interface BookingOptions {
 }
 
 export const bookingHelper = {
-  async selectRadixOption(page: Page, triggerTestId: string, optionTestId: string): Promise<void> {
-    await page.getByTestId(triggerTestId).click();
-    // Wait for the option to appear (SelectContent may render in a portal)
-    const opt = page.getByTestId(optionTestId);
-    try {
-      await opt.waitFor({ state: 'visible', timeout: 8_000 });
-      await opt.click();
-    } catch {
-      // Fallback: attempt a forced click if the option didn't become visible in time
-      await opt.click({ force: true });
-    }
+  async selectRadixOption(
+    page: Page,
+    triggerTestId: string,
+    optionTestId: string,
+  ): Promise<void> {
+    const trigger = page.getByTestId(triggerTestId);
+
+    await expect(trigger).toBeVisible();
+
+    await trigger.click();
+
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+
+    const option = page.getByTestId(optionTestId);
+
+    await expect(option).toBeVisible({
+      timeout: 5000,
+    });
+
+    await option.click();
+
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
   },
 
+
+
+
+
+
+  
   // ── Navigate ──────────────────────────────────────────────────────────────
 
   async goToScheduler(page: Page): Promise<void> {
@@ -55,7 +72,13 @@ export const bookingHelper = {
     const hour = target.getHours();
 
     // Click the correct hour cell in the scheduler grid
-    const slotLocator = page.getByTestId(`time-slot-${hour}:00`).first();
+    const slotLocator = page
+      .getByTestId(`time-slot-${hour}:00`)
+      .filter({ hasNot: page.locator('[aria-disabled="true"]') })
+      .first();
+
+    await expect(slotLocator).toBeVisible();
+
     try {
       await slotLocator.click();
     } catch (err) {
@@ -74,24 +97,28 @@ export const bookingHelper = {
 
     // Patient selection
     if (options.patientId) {
-      await dialog.getByTestId('patient-select').click();
-        const optionLocator = page.getByTestId(`patient-option-${options.patientId}`);
-        // Wait for the option to be rendered (select content may be in a portal)
-        try {
-          await optionLocator.waitFor({ state: 'visible', timeout: 8_000 });
-          await optionLocator.click();
-        } catch {
-          // Fallback to force-click if portal rendering timing is flaky
-          await optionLocator.click({ force: true });
-        }
-        // Ensure title is present so the form becomes valid for creation flows
-        const titleInput = dialog.getByLabel('Title');
-        try {
-          const current = await titleInput.inputValue();
-          if (!current) await titleInput.fill(`${options.type ?? 'Visit'} ${Date.now()}`);
-        } catch {
-          // ignore if label not found
-        }
+        await dialog.getByTestId('patient-select').click();
+
+        // Wait until the dropdown is actually open
+        await expect(dialog.getByTestId('patient-select')).toHaveAttribute(
+          'aria-expanded',
+          'true'
+        );
+
+        const optionLocator = page.getByTestId(
+          `patient-option-${options.patientId}`
+        );
+
+        await expect(optionLocator).toBeVisible({
+          timeout: 5000,
+        });
+
+        await optionLocator.click();
+
+        await expect(dialog.getByTestId('patient-select')).toHaveAttribute(
+          'aria-expanded',
+          'false'
+        );
     } else if (options.newPatient) {
       await dialog.getByTestId('create-new-patient-btn').click();
       await this.fillNewPatientForm(page, options.newPatient);
@@ -111,12 +138,26 @@ export const bookingHelper = {
       `appointment-type-option-${options.type}`,
     );
 
-    // Duration
+  // Duration
+  const durationTrigger = dialog.getByTestId("duration-select");
+
+  const currentDuration =
+    (await durationTrigger.textContent())?.trim() ?? "";
+
+  const expected =
+    options.duration === 30
+      ? "Half Hour"
+      : options.duration === 60
+        ? "Full Hour"
+        : "Double Hour";
+
+  if (!currentDuration.includes(expected)) {
     await this.selectRadixOption(
       page,
-      'duration-select',
+      "duration-select",
       `duration-option-${options.duration}`,
     );
+  }
 
     // Notes
     if (options.notes) {

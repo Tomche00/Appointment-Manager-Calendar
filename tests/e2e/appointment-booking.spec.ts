@@ -191,7 +191,7 @@ test.describe('Appointment Booking — Refresh Resilience', () => {
 
     await test.step('Refresh before submitting', async () => {
       await page.reload();
-      await page.waitForLoadState('networkidle');
+      await expect(page.getByTestId('scheduler-grid')).toBeVisible();
     });
 
     await test.step('Dialog is gone, storage count unchanged', async () => {
