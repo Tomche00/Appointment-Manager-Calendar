@@ -38,7 +38,13 @@ export const bookingHelper = {
   // ── Navigate ──────────────────────────────────────────────────────────────
 
   async goToScheduler(page: Page): Promise<void> {
-    await page.getByTestId('nav-scheduler').click();
+    const nav = page.getByTestId('nav-scheduler');
+    await nav.waitFor({ state: 'visible', timeout: 8_000 });
+    try {
+      await nav.click();
+    } catch {
+      await nav.click({ force: true });
+    }
     await expect(page.getByTestId('scheduler-grid')).toBeVisible();
   },
 

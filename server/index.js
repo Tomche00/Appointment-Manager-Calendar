@@ -225,12 +225,24 @@ app.use((error, req, res, _next) => {
 async function startServer() {
   await dataStore.initialize();
 
-  const server = app.listen(PORT, HOST, () => {
-    console.log(`Backend server running on http://${HOST}:${PORT}`);
-  });
+  await new Promise((resolve, reject) => {
+    const server = app.listen(PORT, HOST);
 
-  server.on('error', (error) => {
-    console.error('Backend server failed to start', error);
+    server.once('listening', () => {
+      console.log(`Backend server running on http://${HOST}:${PORT}`);
+      resolve(server);
+    });
+
+    server.once('error', (error) => {
+      if (error.code === 'EADDRINUSE') {
+        error.message =
+          `Port ${PORT} is already in use on ${HOST}. ` +
+          `Another backend instance may already be running. ` +
+          `Stop the existing process or reconfigure the frontend and OAuth callback before using a different PORT.`;
+      }
+
+      reject(error);
+    });
   });
 }
 

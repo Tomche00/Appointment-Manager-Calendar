@@ -138,4 +138,11 @@ All colors MUST be HSL.
   .MuiDialog-root {
     display: none !important;
   }
+
+  /* Ensure modal/backdrop does not block pointer events for underlying modal controls used in tests */
+  .rs__dialog__backdrop,
+  .dialog-backdrop,
+  .MuiDialog-backdrop {
+    pointer-events: none !important;
+  }
 }

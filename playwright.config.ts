@@ -1,11 +1,18 @@
 import { defineConfig, devices } from '@playwright/test';
+import { cpus } from 'os';
 
 export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 4 : 2,
+  // On CI keep a small fixed worker count; locally choose a safe value based
+  // on available CPU cores but allow override via PLAYWRIGHT_WORKERS env var.
+  workers: process.env.CI
+    ? 4
+    : process.env.PLAYWRIGHT_WORKERS
+    ? Number(process.env.PLAYWRIGHT_WORKERS)
+    : Math.max(2, Math.min(8, Math.max(1, cpus().length - 1))),
   reporter: [
     ['html', { outputFolder: 'playwright-report', open: 'never' }],
     ['json', { outputFile: 'playwright-report/results.json' }],
@@ -13,7 +20,7 @@ export default defineConfig({
   ],
 
   use: {
-    baseURL: process.env.BASE_URL ?? 'http://localhost:8080',
+    baseURL: process.env.BASE_URL ?? `http://localhost:${process.env.DEV_PORT ?? 8081}`,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -54,8 +61,9 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:8080',
+    // Force Vite to run on a predictable port for tests (use DEV_PORT override if set)
+    command: `DEV_PORT=${process.env.DEV_PORT ?? 8081} npm run dev`,
+    url: `http://localhost:${process.env.DEV_PORT ?? 8081}`,
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,
   },

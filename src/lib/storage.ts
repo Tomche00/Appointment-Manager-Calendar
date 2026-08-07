@@ -38,6 +38,13 @@ class ApiResponseError extends Error {
   }
 }
 
+class StorageWriteError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'StorageWriteError';
+  }
+}
+
 const isJsonResponse = (response: Response) =>
   response.headers.get('content-type')?.includes('application/json');
 
@@ -124,21 +131,31 @@ const readLS = <T,>(key: string, defaultValue: T): T => {
   }
 };
 
-const writeLS = (key: string, data: unknown) => {
+const hasLSValue = (key: string) => {
   try {
-    localStorage.setItem(key, JSON.stringify(data));
+    return localStorage.getItem(key) !== null;
   } catch {
-    // Ignore storage write failures and keep the in-memory data flow working.
+    return false;
   }
 };
 
-const syncCollectionCache = <T,>(key: string, data: T[]) => {
-  writeLS(key, data);
+const writeLS = (key: string, data: unknown, { strict = false }: { strict?: boolean } = {}) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (error) {
+    if (strict) {
+      throw new StorageWriteError('Unable to save because browser storage is full or unavailable.');
+    }
+  }
+};
+
+const syncCollectionCache = <T,>(key: string, data: T[], { strict = false }: { strict?: boolean } = {}) => {
+  writeLS(key, data, { strict });
   return data;
 };
 
-const syncSettingsCache = (settings: AppointmentSettings) => {
-  writeLS(LS_KEYS.settings, settings);
+const syncSettingsCache = (settings: AppointmentSettings, { strict = false }: { strict?: boolean } = {}) => {
+  writeLS(LS_KEYS.settings, settings, { strict });
   return settings;
 };
 
@@ -196,6 +213,10 @@ export const initializeData = async () => {
 // Patient storage operations
 export const patientsStorage = {
   getAll: async (): Promise<Patient[]> => {
+    if (hasLSValue(LS_KEYS.patients)) {
+      return readLS<Patient[]>(LS_KEYS.patients, []);
+    }
+
     try {
       const patients = await apiCall('/patients') as Patient[];
       return syncCollectionCache(LS_KEYS.patients, patients);
@@ -209,59 +230,123 @@ export const patientsStorage = {
   },
   
   add: async (patient: Omit<Patient, 'id' | 'createdAt'>): Promise<Patient> => {
-    const createdPatient = await apiCall('/patients', {
-      method: 'POST',
-      body: JSON.stringify({
-        ...patient,
-        createdAt: new Date().toISOString()
-      }),
-    }) as Patient;
+    const payload = {
+      ...patient,
+      createdAt: new Date().toISOString(),
+    };
 
-    const all = readLS<Patient[]>(LS_KEYS.patients, []);
-    syncCollectionCache(LS_KEYS.patients, [...all, createdPatient]);
-    return createdPatient;
+    try {
+      const createdPatient = await apiCall('/patients', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }) as Patient;
+
+      const all = readLS<Patient[]>(LS_KEYS.patients, []);
+      syncCollectionCache(LS_KEYS.patients, [...all, createdPatient], { strict: true });
+      return createdPatient;
+    } catch (error) {
+      if (error instanceof StorageWriteError) {
+        throw error;
+      }
+      if (!shouldUseOfflineFallback(error)) {
+        throw error;
+      }
+      logOfflineFallback('patients:add', error);
+
+      const createdPatient: Patient = {
+        ...payload,
+        id: `patient-${Date.now()}`,
+      };
+      const all = readLS<Patient[]>(LS_KEYS.patients, []);
+      syncCollectionCache(LS_KEYS.patients, [...all, createdPatient], { strict: true });
+      return createdPatient;
+    }
   },
   
   update: async (id: string, updates: Partial<Patient>): Promise<Patient> => {
-    const updatedPatient = await apiCall(`/patients/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(updates),
-    }) as Patient;
-
     const all = readLS<Patient[]>(LS_KEYS.patients, []);
-    syncCollectionCache(
-      LS_KEYS.patients,
-      all.map((patient) => patient.id === id ? updatedPatient : patient)
-    );
+    const existingPatient = all.find((patient) => patient.id === id);
 
-    const appointmentCache = readLS<Appointment[]>(LS_KEYS.appointments, []);
-    syncCollectionCache(
-      LS_KEYS.appointments,
-      appointmentCache.map((appointment) =>
-        appointment.patientId === id
-          ? { ...appointment, patientName: buildPatientName(updatedPatient) }
-          : appointment
-      )
-    );
+    try {
+      const updatedPatient = await apiCall(`/patients/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      }) as Patient;
 
-    return updatedPatient;
+      syncCollectionCache(
+        LS_KEYS.patients,
+        all.map((patient) => patient.id === id ? updatedPatient : patient),
+        { strict: true }
+      );
+
+      const appointmentCache = readLS<Appointment[]>(LS_KEYS.appointments, []);
+      syncCollectionCache(
+        LS_KEYS.appointments,
+        appointmentCache.map((appointment) =>
+          appointment.patientId === id
+            ? { ...appointment, patientName: buildPatientName(updatedPatient) }
+            : appointment
+        ),
+        { strict: true }
+      );
+
+      return updatedPatient;
+    } catch (error) {
+      if (error instanceof StorageWriteError) {
+        throw error;
+      }
+      if (!shouldUseOfflineFallback(error)) {
+        throw error;
+      }
+      logOfflineFallback('patients:update', error);
+
+      const updatedPatient = { ...(existingPatient ?? { id, createdAt: new Date().toISOString() }), ...updates, id } as Patient;
+      syncCollectionCache(
+        LS_KEYS.patients,
+        all.map((patient) => patient.id === id ? updatedPatient : patient),
+        { strict: true }
+      );
+
+      const appointmentCache = readLS<Appointment[]>(LS_KEYS.appointments, []);
+      syncCollectionCache(
+        LS_KEYS.appointments,
+        appointmentCache.map((appointment) =>
+          appointment.patientId === id
+            ? { ...appointment, patientName: buildPatientName(updatedPatient) }
+            : appointment
+        ),
+        { strict: true }
+      );
+
+      return updatedPatient;
+    }
   },
   
   delete: async (id: string): Promise<void> => {
-    await apiCall(`/patients/${id}`, {
-      method: 'DELETE',
-    });
-
     const all = readLS<Patient[]>(LS_KEYS.patients, []);
+    const appointmentCache = readLS<Appointment[]>(LS_KEYS.appointments, []);
+
+    try {
+      await apiCall(`/patients/${id}`, {
+        method: 'DELETE',
+      });
+    } catch (error) {
+      if (!shouldUseOfflineFallback(error)) {
+        throw error;
+      }
+      logOfflineFallback('patients:delete', error);
+    }
+
     syncCollectionCache(
       LS_KEYS.patients,
-      all.filter((patient) => patient.id !== id)
+      all.filter((patient) => patient.id !== id),
+      { strict: true }
     );
 
-    const appointmentCache = readLS<Appointment[]>(LS_KEYS.appointments, []);
     syncCollectionCache(
       LS_KEYS.appointments,
-      appointmentCache.filter((appointment) => appointment.patientId !== id)
+      appointmentCache.filter((appointment) => appointment.patientId !== id),
+      { strict: true }
     );
   }
 };
@@ -269,6 +354,10 @@ export const patientsStorage = {
 // Appointment storage operations
 export const appointmentsStorage = {
   getAll: async (): Promise<Appointment[]> => {
+    if (hasLSValue(LS_KEYS.appointments)) {
+      return readLS<Appointment[]>(LS_KEYS.appointments, []);
+    }
+
     try {
       const appointments = await apiCall('/appointments') as Appointment[];
       return syncCollectionCache(LS_KEYS.appointments, appointments);
@@ -282,42 +371,107 @@ export const appointmentsStorage = {
   },
   
   add: async (appointment: Omit<Appointment, 'id' | 'createdAt'>): Promise<Appointment> => {
-    const createdAppointment = await apiCall('/appointments', {
-      method: 'POST',
-      body: JSON.stringify({
-        ...appointment,
-        createdAt: new Date().toISOString()
-      }),
-    }) as Appointment;
-
+    const payload = {
+      ...appointment,
+      createdAt: new Date().toISOString(),
+    };
     const all = readLS<Appointment[]>(LS_KEYS.appointments, []);
-    syncCollectionCache(LS_KEYS.appointments, [...all, createdAppointment]);
-    return createdAppointment;
+
+    try {
+      const createdAppointment = await apiCall('/appointments', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }) as Appointment;
+
+      try {
+        syncCollectionCache(LS_KEYS.appointments, [...all, createdAppointment], { strict: true });
+      } catch (error) {
+        if (createdAppointment.id) {
+          try {
+            await apiCall(`/appointments/${createdAppointment.id}`, { method: 'DELETE' });
+          } catch {
+            /* best-effort rollback */
+          }
+        }
+        throw error;
+      }
+
+      return createdAppointment;
+    } catch (error) {
+      if (error instanceof StorageWriteError) {
+        throw error;
+      }
+      if (!shouldUseOfflineFallback(error)) {
+        throw error;
+      }
+      logOfflineFallback('appointments:add', error);
+
+      const createdAppointment: Appointment = {
+        ...payload,
+        id: appointment.id ?? `appointment-${Date.now()}`,
+      };
+      syncCollectionCache(LS_KEYS.appointments, [...all, createdAppointment], { strict: true });
+      return createdAppointment;
+    }
   },
   
   update: async (id: string, updates: Partial<Appointment>): Promise<Appointment> => {
-    const updatedAppointment = await apiCall(`/appointments/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(updates),
-    }) as Appointment;
-
     const all = readLS<Appointment[]>(LS_KEYS.appointments, []);
-    syncCollectionCache(
-      LS_KEYS.appointments,
-      all.map((appointment) => appointment.id === id ? updatedAppointment : appointment)
-    );
-    return updatedAppointment;
+    const existingAppointment = all.find((appointment) => appointment.id === id);
+
+    try {
+      const updatedAppointment = await apiCall(`/appointments/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      }) as Appointment;
+
+      syncCollectionCache(
+        LS_KEYS.appointments,
+        all.map((appointment) => appointment.id === id ? updatedAppointment : appointment),
+        { strict: true }
+      );
+      return updatedAppointment;
+    } catch (error) {
+      if (error instanceof StorageWriteError) {
+        throw error;
+      }
+      if (!shouldUseOfflineFallback(error)) {
+        throw error;
+      }
+      logOfflineFallback('appointments:update', error);
+
+      const updatedAppointment = {
+        ...(existingAppointment ?? { id, createdAt: new Date().toISOString() }),
+        ...updates,
+        id,
+      } as Appointment;
+      syncCollectionCache(
+        LS_KEYS.appointments,
+        all.map((appointment) => appointment.id === id ? updatedAppointment : appointment),
+        { strict: true }
+      );
+      return updatedAppointment;
+    }
   },
   
   delete: async (id: string): Promise<void> => {
-    await apiCall(`/appointments/${id}`, {
-      method: 'DELETE',
-    });
-
     const all = readLS<Appointment[]>(LS_KEYS.appointments, []);
+
+    try {
+      await apiCall(`/appointments/${id}`, {
+        method: 'DELETE',
+      });
+    } catch (error) {
+      if (!shouldUseOfflineFallback(error)) {
+        throw error;
+      }
+      logOfflineFallback('appointments:delete', error);
+    }
+
     syncCollectionCache(
       LS_KEYS.appointments,
-      all.filter((appointment) => appointment.id !== id)
+      all.filter((appointment) => appointment.id !== id),
+      { strict: true }
     );
   },
   
@@ -341,6 +495,10 @@ export const appointmentsStorage = {
 // Settings storage operations
 export const settingsStorage = {
   get: async (): Promise<AppointmentSettings> => {
+    if (hasLSValue(LS_KEYS.settings)) {
+      return normalizeSettings(readLS<Partial<AppointmentSettings>>(LS_KEYS.settings, {}));
+    }
+
     try {
       const data = normalizeSettings(await apiCall('/settings'));
       return syncSettingsCache(data);
@@ -354,21 +512,44 @@ export const settingsStorage = {
   },
   
   save: async (settings: AppointmentSettings): Promise<AppointmentSettings> => {
-    const data = normalizeSettings(await apiCall('/settings', {
-      method: 'PUT',
-      body: JSON.stringify(settings),
-    }));
+    try {
+      const data = normalizeSettings(await apiCall('/settings', {
+        method: 'PUT',
+        body: JSON.stringify(settings),
+      }));
 
-    return syncSettingsCache(data);
+      return syncSettingsCache(data, { strict: true });
+    } catch (error) {
+      if (error instanceof StorageWriteError) {
+        throw error;
+      }
+      if (!shouldUseOfflineFallback(error)) {
+        throw error;
+      }
+      logOfflineFallback('settings:save', error);
+      return syncSettingsCache(normalizeSettings(settings), { strict: true });
+    }
   },
   
   update: async (updates: Partial<AppointmentSettings>): Promise<AppointmentSettings> => {
-    const data = normalizeSettings(await apiCall('/settings', {
-      method: 'PUT',
-      body: JSON.stringify(updates),
-    }));
+    try {
+      const data = normalizeSettings(await apiCall('/settings', {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      }));
 
-    return syncSettingsCache(data);
+      return syncSettingsCache(data, { strict: true });
+    } catch (error) {
+      if (error instanceof StorageWriteError) {
+        throw error;
+      }
+      if (!shouldUseOfflineFallback(error)) {
+        throw error;
+      }
+      logOfflineFallback('settings:update', error);
+      const current = normalizeSettings(readLS<Partial<AppointmentSettings>>(LS_KEYS.settings, {}));
+      return syncSettingsCache(normalizeSettings({ ...current, ...updates }), { strict: true });
+    }
   }
 };
 

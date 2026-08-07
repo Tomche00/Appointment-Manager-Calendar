@@ -36,8 +36,19 @@ export const storageHelper = {
 
   async seed(page: Page, key: StorageKey, data: unknown[]): Promise<void> {
     await page.evaluate(
-      ([k, d]) => localStorage.setItem(k, JSON.stringify(d)),
-      [KEYS[key], data] as [string, unknown[]],
+      ([k, d, appointmentKey, settingsKey]) => {
+        localStorage.setItem(k, JSON.stringify(d));
+        if (!localStorage.getItem(appointmentKey)) {
+          localStorage.setItem(appointmentKey, '[]');
+        }
+        if (!localStorage.getItem(settingsKey)) {
+          localStorage.setItem(
+            settingsKey,
+            JSON.stringify({ startTime: '08:00', endTime: '18:00', workingDays: [1, 2, 3, 4, 5], timeSlotMinutes: 30 }),
+          );
+        }
+      },
+      [KEYS[key], data, KEYS.appointments, KEYS.settings] as [string, unknown[], string, string],
     );
   },
 

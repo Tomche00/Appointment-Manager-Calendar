@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { WeeklyScheduler } from '@/components/dashboard/WeeklyScheduler';
 import { PatientList } from '@/components/patients/PatientList';
@@ -27,6 +27,8 @@ const Index = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [savingAppointment, setSavingAppointment] = useState(false);
+  const appointmentSaveInFlightRef = useRef(false);
   const [sidebarStats, setSidebarStats] = useState({
     totalPatients: 0,
     totalVisits: 0,
@@ -144,6 +146,13 @@ const Index = () => {
 
   // Save new or updated appointment to appointmentsStorage
   const handleSaveAppointment = async (data: any) => {
+    if (appointmentSaveInFlightRef.current) {
+      return;
+    }
+
+    appointmentSaveInFlightRef.current = true;
+    setSavingAppointment(true);
+
     try {
       const patientsArr = await patientsStorage.getAll().catch(() => []);
       const existingAppointments = await appointmentsStorage.getAll().catch(() => []);
@@ -183,12 +192,14 @@ const Index = () => {
       });
 
       if (conflictingAppointment) {
+        const conflictError = new Error('This time range overlaps an existing appointment.');
+        conflictError.name = 'SlotConflictError';
         toast({
           title: t('common.error'),
-          description: 'This time range overlaps an existing appointment.',
+          description: conflictError.message,
           variant: 'destructive',
         });
-        return;
+        throw conflictError;
       }
 
       if (selectedAppointment && selectedAppointment.id) {
@@ -234,12 +245,18 @@ const Index = () => {
 
       handleRefresh();
     } catch (e) {
-      console.error('Failed to save appointment', e);
+      if (e instanceof Error && e.name === 'SlotConflictError') {
+        throw e;
+      }
       toast({
         title: t('common.error'),
         description: e instanceof Error ? e.message : 'Failed to save appointment',
         variant: 'destructive',
       });
+      throw e;
+    } finally {
+      appointmentSaveInFlightRef.current = false;
+      setSavingAppointment(false);
     }
   };
 
@@ -315,6 +332,7 @@ const Index = () => {
         onUpdated={handleRefresh}
         onDelete={handleDeleteAppointment}
         refreshTrigger={refreshTrigger}
+        saving={savingAppointment}
       />
       
       <CreatePatientDialog

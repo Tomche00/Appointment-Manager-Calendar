@@ -174,7 +174,7 @@ jobs:
       - run: npx playwright install --with-deps
       - run: npx playwright test
         env:
-          BASE_URL: http://localhost:5173
+          BASE_URL: http://localhost:8081
           CI: true
       - uses: actions/upload-artifact@v4
         if: failure()

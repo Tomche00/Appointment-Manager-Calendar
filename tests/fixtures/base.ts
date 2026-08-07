@@ -36,17 +36,66 @@ export const test = base.extend<MedicalFixtures>({
   // Page with Alice & Bob pre-seeded — most tests start here
   pageWithPatients: async ({ browser }, use) => {
     const ctx = await browser.newContext();
+    const _patients = [structuredClone(PATIENTS.alice), structuredClone(PATIENTS.bob)];
+    const _appointments: any[] = [];
+    let _settings: any = { startTime: '08:00', endTime: '18:00', workingDays: [1, 2, 3, 4, 5], timeSlotMinutes: 30 };
+
     // Intercept API calls to make them deterministic for tests
     await ctx.route('**/api/patients', async (route) => {
-      await route.fulfill({
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify([PATIENTS.alice, PATIENTS.bob]),
-      });
+      const req = route.request();
+      if (req.method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(_patients),
+        });
+        return;
+      }
+      if (req.method() === 'POST') {
+        const body = JSON.parse(req.postData() ?? '{}');
+        const created = { ...body, id: body.id ?? `patient-${Date.now()}`, createdAt: body.createdAt ?? new Date().toISOString() };
+        _patients.push(created);
+        await route.fulfill({
+          status: 201,
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(created),
+        });
+        return;
+      }
+      await route.continue();
     });
 
-    // Keep a minimal in-memory appointments store for this context so POSTs return created objects
-    const _appointments: any[] = [];
+    await ctx.route('**/api/patients/**', async (route) => {
+      const req = route.request();
+      const id = req.url().split('/').pop();
+      const index = _patients.findIndex((patient) => patient.id === id);
+
+      if (req.method() === 'PUT') {
+        const body = JSON.parse(req.postData() ?? '{}');
+        if (index === -1) {
+          await route.fulfill({ status: 404, body: 'Not found' });
+          return;
+        }
+        _patients[index] = { ..._patients[index], ...body };
+        await route.fulfill({
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(_patients[index]),
+        });
+        return;
+      }
+
+      if (req.method() === 'DELETE') {
+        if (index !== -1) {
+          _patients.splice(index, 1);
+        }
+        await route.fulfill({ status: 204 });
+        return;
+      }
+
+      await route.continue();
+    });
+
     await ctx.route('**/api/appointments', async (route) => {
       const req = route.request();
       try {
@@ -64,6 +113,29 @@ export const test = base.extend<MedicalFixtures>({
         }
       } catch (e) {
         await route.continue();
+      }
+      await route.continue();
+    });
+
+    await ctx.route('**/api/settings', async (route) => {
+      const req = route.request();
+      if (req.method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(_settings),
+        });
+        return;
+      }
+      if (req.method() === 'PUT') {
+        const body = JSON.parse(req.postData() ?? '{}');
+        _settings = { ..._settings, ...body };
+        await route.fulfill({
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(_settings),
+        });
+        return;
       }
       await route.continue();
     });
@@ -109,9 +181,12 @@ export const test = base.extend<MedicalFixtures>({
     await ctx.addInitScript(({ key, value }) => {
       localStorage.setItem(key, value);
     }, { key: 'medical-patients', value: JSON.stringify([PATIENTS.alice, PATIENTS.bob]) });
+    await ctx.addInitScript(({ key, value }) => {
+      localStorage.setItem(key, value);
+    }, { key: 'medical-appointments', value: '[]' });
     // Ensure settings (working hours) are seeded so scheduler renders deterministically
     await ctx.addInitScript(() => {
-      localStorage.setItem('medical-settings', JSON.stringify({ startTime: '08:00', endTime: '18:00', workingDays: [1,2,3,4,5] }));
+      localStorage.setItem('medical-settings', JSON.stringify({ startTime: '08:00', endTime: '18:00', workingDays: [1,2,3,4,5], timeSlotMinutes: 30 }));
     });
     // Workaround: deduplicate time-slot testids so Playwright strict locators
     // that expect a single `time-slot-...` don't fail when multiple days are
@@ -160,19 +235,104 @@ export const test = base.extend<MedicalFixtures>({
   // Completely clean page — for tests that need to verify empty states
   pageClean: async ({ browser }, use) => {
     const ctx = await browser.newContext();
-    // For a clean page, respond with empty collections
+    const _patients: any[] = [];
+    const _appointments: any[] = [];
+    let _settings: any = { startTime: '08:00', endTime: '18:00', workingDays: [1, 2, 3, 4, 5], timeSlotMinutes: 30 };
+
     await ctx.route('**/api/patients', async (route) => {
-      await route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: '[]' });
+      const req = route.request();
+      if (req.method() === 'GET') {
+        await route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify(_patients) });
+        return;
+      }
+      if (req.method() === 'POST') {
+        const body = JSON.parse(req.postData() ?? '{}');
+        const created = { ...body, id: body.id ?? `patient-${Date.now()}`, createdAt: body.createdAt ?? new Date().toISOString() };
+        _patients.push(created);
+        await route.fulfill({ status: 201, headers: { 'content-type': 'application/json' }, body: JSON.stringify(created) });
+        return;
+      }
+      await route.continue();
+    });
+    await ctx.route('**/api/patients/**', async (route) => {
+      const req = route.request();
+      const id = req.url().split('/').pop();
+      const index = _patients.findIndex((patient) => patient.id === id);
+      if (req.method() === 'PUT') {
+        const body = JSON.parse(req.postData() ?? '{}');
+        if (index === -1) {
+          await route.fulfill({ status: 404, body: 'Not found' });
+          return;
+        }
+        _patients[index] = { ..._patients[index], ...body };
+        await route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify(_patients[index]) });
+        return;
+      }
+      if (req.method() === 'DELETE') {
+        if (index !== -1) {
+          _patients.splice(index, 1);
+        }
+        await route.fulfill({ status: 204 });
+        return;
+      }
+      await route.continue();
     });
     await ctx.route('**/api/appointments', async (route) => {
       const req = route.request();
       if (req.method() === 'GET') {
-        await route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: '[]' });
+        await route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify(_appointments) });
+      } else if (req.method() === 'POST') {
+        const body = JSON.parse(req.postData() ?? '{}');
+        const created = { ...body, id: body.id ?? `appointment-${Date.now()}`, createdAt: body.createdAt ?? new Date().toISOString() };
+        _appointments.push(created);
+        await route.fulfill({ status: 201, headers: { 'content-type': 'application/json' }, body: JSON.stringify(created) });
       } else {
         await route.continue();
       }
     });
-    await ctx.addInitScript(() => { localStorage.clear(); });
+    await ctx.route('**/api/appointments/**', async (route) => {
+      const req = route.request();
+      const id = req.url().split('/').pop();
+      const index = _appointments.findIndex((appointment) => appointment.id === id);
+      if (req.method() === 'PUT') {
+        const body = JSON.parse(req.postData() ?? '{}');
+        if (index === -1) {
+          await route.fulfill({ status: 404, body: 'Not found' });
+          return;
+        }
+        _appointments[index] = { ..._appointments[index], ...body };
+        await route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify(_appointments[index]) });
+        return;
+      }
+      if (req.method() === 'DELETE') {
+        if (index !== -1) {
+          _appointments.splice(index, 1);
+        }
+        await route.fulfill({ status: 204 });
+        return;
+      }
+      await route.continue();
+    });
+    await ctx.route('**/api/settings', async (route) => {
+      const req = route.request();
+      if (req.method() === 'GET') {
+        await route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify(_settings) });
+        return;
+      }
+      if (req.method() === 'PUT') {
+        const body = JSON.parse(req.postData() ?? '{}');
+        _settings = { ..._settings, ...body };
+        await route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify(_settings) });
+        return;
+      }
+      await route.continue();
+    });
+    await ctx.addInitScript(() => {
+      localStorage.clear();
+      localStorage.setItem('medical-patients', '[]');
+      localStorage.setItem('medical-appointments', '[]');
+      localStorage.setItem('medical-settings', JSON.stringify({ startTime: '08:00', endTime: '18:00', workingDays: [1, 2, 3, 4, 5], timeSlotMinutes: 30 }));
+    });
     const page = await ctx.newPage();
     await page.goto('/');
     try {
