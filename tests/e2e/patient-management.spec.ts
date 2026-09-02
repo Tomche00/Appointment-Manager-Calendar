@@ -70,19 +70,18 @@ test.describe('Patient Management — Standalone Creation', () => {
     await expect(page.getByTestId('patient-form-dialog')).toBeVisible(); // stays open
   });
 
-  test('required fields prevent submission when empty', async ({
+  test('only requires first and last name', async ({
     pageClean: page, patients,
   }) => {
     await patients.goToPatients(page);
     await patients.openCreateDialog(page);
 
-    // Submit completely empty form
+    await page.getByTestId('patient-first-name').fill('Name');
+    await page.getByTestId('patient-last-name').fill('Only');
     await page.getByTestId('patient-form-submit').click();
 
-    await expect(page.getByTestId('error-first-name-required')).toBeVisible();
-    await expect(page.getByTestId('error-last-name-required')).toBeVisible();
-    await expect(page.getByTestId('error-email-required')).toBeVisible();
-    await expect(page.getByTestId('error-phone-required')).toBeVisible();
+    await expect(page.getByTestId('patient-form-dialog')).not.toBeVisible();
+    await expect(page.getByTestId('toast-success')).toBeVisible();
   });
 
   test('patient email format is validated', async ({
@@ -126,6 +125,14 @@ test.describe('Patient Management — Inline Creation During Booking', () => {
         phone: newP.phone,
         dateOfBirth: newP.dateOfBirth,
       });
+
+      await page.getByTestId('new-patient-save').click();
+      await expect(page.getByTestId('new-patient-panel')).not.toBeVisible();
+      await expect(page.getByTestId('patient-select')).toContainText(`${newP.firstName} ${newP.lastName}`);
+      await page.getByTestId('patient-select').click();
+      await page.getByTestId('patient-search-input').fill(newP.lastName);
+      await expect(page.getByRole('option', { name: `${newP.firstName} ${newP.lastName}` })).toBeVisible();
+      await page.getByTestId('patient-select').click();
     });
 
     await test.step('Complete rest of booking form', async () => {

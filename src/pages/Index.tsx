@@ -9,6 +9,10 @@ import { Patient, Appointment } from '@/types/appointment';
 import { appointmentsStorage, patientsStorage } from '@/lib/storage';
 import { useI18n } from '@/i18n';
 import { useToast } from '@/hooks/use-toast';
+import { MobileAgenda } from '@/components/dashboard/MobileAgenda';
+import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Menu, Plus } from 'lucide-react';
 
 const rangesOverlap = (
   startA: number,
@@ -21,6 +25,7 @@ const Index = () => {
   const { t } = useI18n();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
   const [appointmentDialogOpen, setAppointmentDialogOpen] = useState(false);
   const [patientDialogOpen, setPatientDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>();
@@ -61,31 +66,6 @@ const Index = () => {
   const handleRefresh = () => {
     setRefreshTrigger(prev => prev + 1);
   };
-
-  // sanitize stored appointments once on mount to avoid invalid dates causing crashes
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem('medical-appointments');
-      if (!raw) return;
-      const arr = JSON.parse(raw);
-      if (!Array.isArray(arr)) return;
-      const cleaned = arr
-        .map((a: any) => {
-          try {
-            const s = new Date(a.start);
-            const e = new Date(a.end);
-            if (!isFinite(s.getTime()) || !isFinite(e.getTime())) return null;
-            return { ...a, start: s.toISOString(), end: e.toISOString() };
-          } catch (e) {
-            return null;
-          }
-        })
-        .filter(Boolean);
-      localStorage.setItem('medical-appointments', JSON.stringify(cleaned));
-    } catch (e) {
-      // ignore
-    }
-  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -143,6 +123,17 @@ const Index = () => {
     ],
     [sidebarStats, t]
   );
+
+  const activeTabTitle = {
+    dashboard: t('sidebar.dashboard'),
+    patients: t('sidebar.patients'),
+    settings: t('sidebar.settings'),
+  }[activeTab] ?? t('sidebar.dashboard');
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    setMobileNavigationOpen(false);
+  };
 
   // Save new or updated appointment to appointmentsStorage
   const handleSaveAppointment = async (data: any) => {
@@ -288,11 +279,20 @@ const Index = () => {
     switch (activeTab) {
       case 'dashboard':
         return (
-          <WeeklyScheduler
-            onCreateAppointment={handleCreateAppointment}
-            onAppointmentClick={handleAppointmentClick}
-            refreshTrigger={refreshTrigger}
-          />
+          <>
+            <MobileAgenda
+              onCreateAppointment={handleCreateAppointment}
+              onAppointmentClick={handleAppointmentClick}
+              refreshTrigger={refreshTrigger}
+            />
+            <div className="hidden md:block">
+              <WeeklyScheduler
+                onCreateAppointment={handleCreateAppointment}
+                onAppointmentClick={handleAppointmentClick}
+                refreshTrigger={refreshTrigger}
+              />
+            </div>
+          </>
         );
       case 'patients':
         return (
@@ -311,8 +311,38 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background flex">
-      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} stats={sidebarStatItems} />
-      <main className="flex-1 min-w-0 bg-gradient-to-b from-muted/25 via-background to-background p-6 md:p-8 lg:px-10 lg:py-9">
+      <Sidebar activeTab={activeTab} onTabChange={handleTabChange} stats={sidebarStatItems} className="hidden md:flex" />
+      <Sheet open={mobileNavigationOpen} onOpenChange={setMobileNavigationOpen}>
+        <SheetContent side="left" className="w-[18rem] p-0 sm:max-w-none">
+          <SheetHeader className="sr-only">
+            <SheetTitle>{t('sidebar.menu')}</SheetTitle>
+          </SheetHeader>
+          <Sidebar activeTab={activeTab} onTabChange={handleTabChange} stats={sidebarStatItems} className="h-full w-full border-r-0" />
+        </SheetContent>
+      </Sheet>
+      <main className="flex-1 min-w-0 bg-gradient-to-b from-muted/25 via-background to-background p-4 sm:p-6 md:p-8 lg:px-10 lg:py-9">
+        <header className="mb-5 flex items-center justify-between md:hidden">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            aria-label="Open navigation"
+            onClick={() => setMobileNavigationOpen(true)}
+            className="h-10 w-10 rounded-xl bg-background/80 shadow-sm"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+          <h1 className="text-base font-semibold tracking-tight">{activeTabTitle}</h1>
+          <Button
+            type="button"
+            size="icon"
+            aria-label="Create appointment"
+            onClick={() => handleCreateAppointment(new Date())}
+            className="h-10 w-10 rounded-xl shadow-sm"
+          >
+            <Plus className="h-5 w-5" />
+          </Button>
+        </header>
         <div className="mx-auto max-w-[1600px]">{renderContent()}</div>
       </main>
       

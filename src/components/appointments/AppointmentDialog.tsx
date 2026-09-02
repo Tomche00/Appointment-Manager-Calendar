@@ -22,6 +22,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";import { Switch } from '@/components/ui/switch';import { Textarea } from "@/components/ui/textarea";
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Separator } from "@/components/ui/separator";
 import {
   AlertDialog,
@@ -33,8 +35,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { CalendarDays, Clock3, ClipboardList, FileText, UserRound } from "lucide-react";
+import { CalendarDays, Check, ChevronsUpDown, Clock3, ClipboardList, FileText, UserRound } from "lucide-react";
 import { patientsStorage } from "@/lib/storage";
+import { createEmptyPatientForm, normalizePatientForm, validatePatientForm } from '@/lib/patientForm';
 import type { Appointment, Patient as StoredPatient } from "@/types/appointment";
 import { useToast } from "@/hooks/use-toast";
 
@@ -55,7 +58,7 @@ type AppointmentDuration = NonNullable<FormData["duration"]>;
 type AppointmentType = NonNullable<FormData["type"]>;
 type AppointmentStatus = NonNullable<FormData["status"]>;
 
-type PatientOption = { id: string; name: string };
+type PatientOption = { id: string; name: string; searchValue?: string };
 type AppointmentDialogAppointment = Partial<Appointment> & {
   duration?: AppointmentDuration | number;
   start?: string;
@@ -178,18 +181,26 @@ export default function AppointmentDialog({
   const patientIdValue = watch("patientId");
   // local patients state: prefer prop but fall back to the configured storage source
   const [localPatients, setLocalPatients] = useState<PatientOption[]>(patients ?? []);
+  const [patientPickerOpen, setPatientPickerOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [showNewPatientPanel, setShowNewPatientPanel] = useState(false);
-  const [newPatientForm, setNewPatientForm] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    dateOfBirth: '',
-  });
+  const [newPatientForm, setNewPatientForm] = useState(createEmptyPatientForm);
+  const [savingNewPatient, setSavingNewPatient] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [submissionErrorId, setSubmissionErrorId] = useState<string | null>(null);
   const { toast } = useToast();
+
+  const resetNewPatientForm = () => {
+    setNewPatientForm(createEmptyPatientForm());
+  };
+
+  const buildPatientOption = (patient: StoredPatient): PatientOption => ({
+    id: patient.id,
+    name: `${patient.firstName ?? ''} ${patient.lastName ?? ''}`.trim() || patient.email || 'Unknown',
+    searchValue: [patient.firstName, patient.lastName, patient.email, patient.phone].filter(Boolean).join(' '),
+  });
+
+  const selectedPatient = localPatients.find((patient) => patient.id === patientIdValue);
 
   useEffect(() => {
     if (startValue && durationValue) {
@@ -208,15 +219,10 @@ export default function AppointmentDialog({
     if (open) {
       reset(defaultValues);
       setShowNewPatientPanel(false);
+      setPatientPickerOpen(false);
       setSubmissionError(null);
       setSubmissionErrorId(null);
-      setNewPatientForm({
-        firstName: '',
-        lastName: '',
-        email: '',
-        phone: '',
-        dateOfBirth: '',
-      });
+      resetNewPatientForm();
     }
   }, [open, reset, defaultValues]);
 
@@ -234,7 +240,11 @@ export default function AppointmentDialog({
 
   useEffect(() => {
     if (patients && patients.length) {
-      setLocalPatients(patients);
+      setLocalPatients((current) => {
+        const mergedPatients = new Map(current.map((patient) => [patient.id, patient]));
+        patients.forEach((patient) => mergedPatients.set(patient.id, patient));
+        return Array.from(mergedPatients.values());
+      });
       return;
     }
 
@@ -251,7 +261,7 @@ export default function AppointmentDialog({
           const id = p.id ?? p._id ?? p.patientId ?? String(p.email ?? p.name ?? Math.random());
           const fullName = `${p.firstName ?? ""} ${p.lastName ?? ""}`.trim();
           const name = (p.name ?? fullName) || p.email || "Unknown";
-          return { id, name };
+          return { id, name, searchValue: [p.firstName, p.lastName, p.email, p.phone].filter(Boolean).join(' ') };
         });
 
         if (isMounted) {
@@ -271,6 +281,52 @@ export default function AppointmentDialog({
     };
   }, [patients, open, refreshTrigger]);
 
+  const saveNewPatient = async () => {
+    const patientForm = normalizePatientForm(newPatientForm);
+    const validationErrors = validatePatientForm(patientForm);
+
+    if (Object.keys(validationErrors).length > 0) {
+      setSubmissionError(validationErrors.emailInvalid
+        ? 'Please enter a valid email address for the new patient.'
+        : 'First name and last name are required.');
+      setSubmissionErrorId('new-patient-panel');
+      return null;
+    }
+
+    setSavingNewPatient(true);
+    setSubmissionError(null);
+    setSubmissionErrorId(null);
+
+    try {
+      const createdPatient = await patientsStorage.add({
+        ...patientForm,
+      });
+
+      const created = buildPatientOption(createdPatient);
+      setLocalPatients((current) =>
+        current.some((patient) => patient.id === created.id) ? current : [...current, created]
+      );
+      setValue('patientId', created.id, { shouldDirty: true, shouldValidate: true });
+      setPatientPickerOpen(false);
+      setShowNewPatientPanel(false);
+      resetNewPatientForm();
+
+      toast({
+        title: 'Patient created',
+        description: `${created.name} is ready to be booked.`,
+      });
+
+      return created;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to create patient.';
+      setSubmissionError(message);
+      setSubmissionErrorId('new-patient-panel');
+      return null;
+    } finally {
+      setSavingNewPatient(false);
+    }
+  };
+
   const submit = async (data: FormData) => {
     setSubmissionError(null);
     let patient = (localPatients || patients).find((p) => p.id === data.patientId);
@@ -281,34 +337,14 @@ export default function AppointmentDialog({
     };
 
     if (!patient && showNewPatientPanel) {
-      const { firstName, lastName, email, phone, dateOfBirth } = newPatientForm;
-      if (!firstName || !lastName || !email || !phone || !dateOfBirth) {
-        setSubmissionError('Please complete the new patient form before continuing.');
-        setSubmissionErrorId('new-patient-panel');
+      const created = await saveNewPatient();
+      if (!created) {
         return;
       }
 
-      try {
-        const createdPatient = await patientsStorage.add({
-          firstName,
-          lastName,
-          email,
-          phone,
-          dateOfBirth,
-        });
-        const created: PatientOption = {
-          id: createdPatient.id,
-          name: `${createdPatient.firstName ?? ''} ${createdPatient.lastName ?? ''}`.trim() || createdPatient.email || 'Unknown',
-        };
-        setLocalPatients((current) => [...current, created]);
-        setValue('patientId', created.id, { shouldDirty: true, shouldValidate: true });
-        patient = created;
-        enrichedData.patientName = created.name;
-      } catch (error) {
-        setSubmissionError('Unable to create patient.');
-        setSubmissionErrorId('new-patient-panel');
-        return;
-      }
+      patient = created;
+      enrichedData.patientId = created.id;
+      enrichedData.patientName = created.name;
     }
 
     try {
@@ -414,27 +450,46 @@ export default function AppointmentDialog({
                       <UserRound className="h-3.5 w-3.5 text-muted-foreground" />
                       Patient
                     </Label>
-                    <Select
-                      onValueChange={(val) =>
-                        setValue("patientId", val ?? null, { shouldDirty: true, shouldValidate: true })
-                      }
-                      value={watch("patientId") ?? undefined}
-                    >
-                      <SelectTrigger
-                        id="patientId"
-                        data-testid="patient-select"
-                        className="h-10 border-border/70 bg-background/80"
-                      >
-                        <SelectValue placeholder="Select patient" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {localPatients.map((p) => (
-                          <SelectItem key={p.id} value={p.id} data-testid={`patient-option-${p.id}`}>
-                            {p.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Popover open={patientPickerOpen} onOpenChange={setPatientPickerOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          id="patientId"
+                          type="button"
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={patientPickerOpen}
+                          data-testid="patient-select"
+                          className="h-10 w-full justify-between border-border/70 bg-background/80 font-normal hover:bg-background/80"
+                        >
+                          <span className="truncate">{selectedPatient?.name ?? 'Select patient'}</span>
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-muted-foreground" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-0">
+                        <Command>
+                          <CommandInput data-testid="patient-search-input" placeholder="Search patients..." />
+                          <CommandList>
+                            <CommandEmpty>No patients found.</CommandEmpty>
+                            <CommandGroup>
+                              {localPatients.map((patient) => (
+                                <CommandItem
+                                  key={patient.id}
+                                  value={`${patient.name} ${patient.searchValue ?? ''}`}
+                                  data-testid={`patient-option-${patient.id}`}
+                                  onSelect={() => {
+                                    setValue('patientId', patient.id, { shouldDirty: true, shouldValidate: true });
+                                    setPatientPickerOpen(false);
+                                  }}
+                                >
+                                  <Check className={`mr-2 h-4 w-4 ${patient.id === patientIdValue ? 'opacity-100' : 'opacity-0'}`} />
+                                  {patient.name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                     <Button
                       type="button"
                       variant="outline"
@@ -449,20 +504,21 @@ export default function AppointmentDialog({
                           <Input
                             id="patient-first-name"
                             data-testid="patient-first-name"
-                            placeholder="First name"
+                            placeholder="First name *"
                             value={newPatientForm.firstName}
                             onChange={(e) => setNewPatientForm(f => ({ ...f, firstName: e.target.value }))}
                           />
                           <Input
                             id="patient-last-name"
                             data-testid="patient-last-name"
-                            placeholder="Last name"
+                            placeholder="Last name *"
                             value={newPatientForm.lastName}
                             onChange={(e) => setNewPatientForm(f => ({ ...f, lastName: e.target.value }))}
                           />
                           <Input
                             id="patient-email"
                             data-testid="patient-email"
+                            type="email"
                             placeholder="Email"
                             value={newPatientForm.email}
                             onChange={(e) => setNewPatientForm(f => ({ ...f, email: e.target.value }))}
@@ -470,6 +526,7 @@ export default function AppointmentDialog({
                           <Input
                             id="patient-phone"
                             data-testid="patient-phone"
+                            type="tel"
                             placeholder="Phone"
                             value={newPatientForm.phone}
                             onChange={(e) => setNewPatientForm(f => ({ ...f, phone: e.target.value }))}
@@ -477,15 +534,39 @@ export default function AppointmentDialog({
                           <Input
                             id="patient-dob"
                             data-testid="patient-dob"
+                            type="date"
                             placeholder="YYYY-MM-DD"
                             value={newPatientForm.dateOfBirth}
                             onChange={(e) => setNewPatientForm(f => ({ ...f, dateOfBirth: e.target.value }))}
                           />
+                          {submissionError && submissionErrorId === 'new-patient-panel' && (
+                            <div
+                              data-testid="new-patient-inline-error"
+                              role="alert"
+                              className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-sm text-destructive-foreground"
+                            >
+                              {submissionError}
+                            </div>
+                          )}
                           <div className="flex gap-2">
-                            <Button type="button" data-testid="new-patient-save" onClick={() => {/* handled on form submit */}}>
-                              Save patient (on submit)
+                            <Button
+                              type="button"
+                              data-testid="new-patient-save"
+                              disabled={savingNewPatient}
+                              onClick={() => void saveNewPatient()}
+                            >
+                              {savingNewPatient ? 'Saving patient...' : 'Save patient'}
                             </Button>
-                            <Button type="button" variant="outline" data-testid="new-patient-cancel" onClick={() => setShowNewPatientPanel(false)}>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              data-testid="new-patient-cancel"
+                              onClick={() => {
+                                setShowNewPatientPanel(false);
+                                setSubmissionError(null);
+                                setSubmissionErrorId(null);
+                              }}
+                            >
                               Cancel
                             </Button>
                           </div>

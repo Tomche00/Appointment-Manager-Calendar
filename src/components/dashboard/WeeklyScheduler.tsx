@@ -14,23 +14,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useI18n } from '@/i18n';
 import { cn } from '@/lib/utils';
 
-const SCHEDULER_VIEW_DATE_KEY = 'scheduler_view_week_anchor';
-const APPOINTMENTS_STORAGE_KEY = 'medical-appointments';
-const SETTINGS_STORAGE_KEY = 'medical-settings';
-
-function readStoredViewDate(): Date {
-  try {
-    const raw = localStorage.getItem(SCHEDULER_VIEW_DATE_KEY);
-    if (raw) {
-      const d = new Date(raw);
-      if (!Number.isNaN(d.getTime())) return d;
-    }
-  } catch {
-    /* ignore */
-  }
-  return new Date();
-}
-
 function appointmentTypeKey(type: Appointment['type']): 'consultation' | 'followUp' | 'procedure' {
   if (type === 'follow-up') return 'followUp';
   return type;
@@ -69,20 +52,10 @@ export function WeeklyScheduler({ onCreateAppointment, onAppointmentClick, refre
   const [showGoogleSync, setShowGoogleSync] = useState(false);
   const [googleReauthRequired, setGoogleReauthRequired] = useState(false);
   const [googleDetailEvent, setGoogleDetailEvent] = useState<any | null>(null);
-  const [storageErrorMessage, setStorageErrorMessage] = useState<string | null>(null);
-  const [externalRefreshTick, setExternalRefreshTick] = useState(0);
   const { toast } = useToast();
   const { t, dateFnsLocale } = useI18n();
 
-  const [viewDate, setViewDate] = useState<Date>(() => readStoredViewDate());
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(SCHEDULER_VIEW_DATE_KEY, viewDate.toISOString());
-    } catch {
-      /* ignore */
-    }
-  }, [viewDate]);
+  const [viewDate, setViewDate] = useState<Date>(() => new Date());
 
   const weekStart = useMemo(
     () => startOfWeek(viewDate, { weekStartsOn: 1 }),
@@ -119,33 +92,12 @@ export function WeeklyScheduler({ onCreateAppointment, onAppointmentClick, refre
     return date;
   };
 
-  const inspectAppointmentsStorage = () => {
-    try {
-      const raw = localStorage.getItem(APPOINTMENTS_STORAGE_KEY);
-      if (!raw) {
-        setStorageErrorMessage(null);
-        return;
-      }
-
-      JSON.parse(raw);
-      setStorageErrorMessage(null);
-    } catch {
-      setStorageErrorMessage('Stored appointment data was corrupted and has been reset.');
-      try {
-        localStorage.removeItem(APPOINTMENTS_STORAGE_KEY);
-      } catch {
-        /* ignore */
-      }
-    }
-  };
-
   useEffect(() => {
     let isMounted = true;
 
     const loadData = async () => {
       const showFullLoading = !initialLoadDoneRef.current;
       try {
-        inspectAppointmentsStorage();
         if (showFullLoading) setLoading(true);
         const appointmentsData = await appointmentsStorage.getAll().catch(() => []);
         const settingsData = await settingsStorage.get().catch(() => ({
@@ -185,29 +137,7 @@ export function WeeklyScheduler({ onCreateAppointment, onAppointmentClick, refre
     return () => {
       isMounted = false;
     };
-  }, [refreshTrigger, externalRefreshTick]);
-
-  useEffect(() => {
-    const handleStorage = (event: StorageEvent) => {
-      if (
-        event.key &&
-        event.key !== APPOINTMENTS_STORAGE_KEY &&
-        event.key !== SETTINGS_STORAGE_KEY
-      ) {
-        return;
-      }
-
-      inspectAppointmentsStorage();
-      setExternalRefreshTick((current) => current + 1);
-    };
-
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
-  }, []);
-
-  useEffect(() => {
-    inspectAppointmentsStorage();
-  }, []);
+  }, [refreshTrigger]);
 
   const fetchGoogleEvents = async () => {
     setGoogleReauthRequired(false);
@@ -378,14 +308,6 @@ export function WeeklyScheduler({ onCreateAppointment, onAppointmentClick, refre
 
   return (
     <div className="space-y-6" data-testid="scheduler-grid">
-      {storageErrorMessage && (
-        <div
-          data-testid="storage-error-banner"
-          className="rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-foreground"
-        >
-          {storageErrorMessage}
-        </div>
-      )}
       {appointments.length === 0 && (
         <div
           data-testid="scheduler-empty-state"

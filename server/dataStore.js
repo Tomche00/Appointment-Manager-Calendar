@@ -149,6 +149,13 @@ export function createDataStore({
 
     async createPatient(input) {
       const patients = await readPatients();
+      const firstName = String(input.firstName ?? '').trim();
+      const lastName = String(input.lastName ?? '').trim();
+      if (!firstName || !lastName) {
+        const error = new Error('First name and last name are required.');
+        error.statusCode = 400;
+        throw error;
+      }
       const email = String(input.email ?? '').trim().toLowerCase();
       if (email && patients.some((patient) => String(patient.email ?? '').trim().toLowerCase() === email)) {
         const error = new Error('A patient with this email already exists.');
@@ -159,8 +166,8 @@ export function createDataStore({
       const patient = {
         id: randomUUID(),
         createdAt: input.createdAt ?? new Date().toISOString(),
-        firstName: String(input.firstName ?? '').trim(),
-        lastName: String(input.lastName ?? '').trim(),
+        firstName,
+        lastName,
         email: String(input.email ?? '').trim(),
         phone: String(input.phone ?? '').trim(),
         dateOfBirth: String(input.dateOfBirth ?? ''),
@@ -196,9 +203,19 @@ export function createDataStore({
         throw error;
       }
 
+      const nextFirstName = updates.firstName == null ? patients[index].firstName : String(updates.firstName).trim();
+      const nextLastName = updates.lastName == null ? patients[index].lastName : String(updates.lastName).trim();
+      if (!nextFirstName || !nextLastName) {
+        const error = new Error('First name and last name are required.');
+        error.statusCode = 400;
+        throw error;
+      }
+
       patients[index] = {
         ...patients[index],
         ...updates,
+        firstName: nextFirstName,
+        lastName: nextLastName,
         id: patients[index].id,
         createdAt: patients[index].createdAt,
       };

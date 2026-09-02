@@ -12,6 +12,7 @@ interface SidebarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
   stats?: SidebarStat[];
+  className?: string;
 }
 
 const navigation = [
@@ -20,10 +21,10 @@ const navigation = [
   { id: 'settings', nameKey: 'sidebar.settings' as const, icon: Settings, testId: 'nav-settings' },
 ];
 
-export function Sidebar({ activeTab, onTabChange, stats = [] }: SidebarProps) {
+export function Sidebar({ activeTab, onTabChange, stats = [], className }: SidebarProps) {
   const { t } = useI18n();
   return (
-    <div className="flex w-64 flex-col border-r border-sidebar-border/80 bg-sidebar shadow-soft">
+    <div className={cn('flex w-64 flex-col border-r border-sidebar-border/80 bg-sidebar shadow-soft', className)}>
       {/* Header */}
       <div className="border-b border-sidebar-border/60 px-5 py-6">
         <div className="flex items-center gap-3.5">

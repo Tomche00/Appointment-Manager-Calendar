@@ -115,5 +115,70 @@
     "type": "consultation",
     "status": "scheduled",
     "notes": ""
+  },
+  {
+    "id": "9899dbc8-10a4-40f2-95fd-974e54f697e6",
+    "createdAt": "2026-09-02T18:36:15.334Z",
+    "title": "dfgdfgfdgdf",
+    "patientId": "f2a7ecc6-20c2-4efa-9220-f893105dcec5",
+    "patientName": "Duplicate User",
+    "startTime": "2026-08-06T07:00:00.000Z",
+    "endTime": "2026-08-06T08:00:00.000Z",
+    "duration": 60,
+    "type": "consultation",
+    "status": "scheduled",
+    "notes": ""
+  },
+  {
+    "id": "21135920-b554-4d51-91e6-d0e82f4f302e",
+    "createdAt": "2026-09-02T18:56:43.690Z",
+    "title": "fghfghfghf",
+    "patientId": "b3e70a3b-f790-42dc-bbfd-3e31a2b78ddd",
+    "patientName": "Tomislav Jov",
+    "startTime": "2026-09-04T07:00:00.000Z",
+    "endTime": "2026-09-04T07:30:00.000Z",
+    "duration": 30,
+    "type": "consultation",
+    "status": "scheduled",
+    "notes": ""
+  },
+  {
+    "id": "d56bf214-1529-473f-8404-6e18e2f7469c",
+    "createdAt": "2026-09-02T18:57:25.179Z",
+    "title": "ertertertertetetertertertertertert",
+    "patientId": "a9b24549-f70d-4867-8cd0-8791742e17b7",
+    "patientName": "dfgdfgfgdfgdfgdf dfdfgdfg",
+    "startTime": "2026-09-04T00:00:00.000Z",
+    "endTime": "2026-09-04T02:00:00.000Z",
+    "duration": 120,
+    "type": "consultation",
+    "status": "scheduled",
+    "notes": ""
+  },
+  {
+    "id": "ac470fdf-5d73-401b-904b-052396fd9478",
+    "createdAt": "2026-09-02T19:08:39.368Z",
+    "title": "ertertertertetetertertertertertert",
+    "patientId": "acd6461a-dfb1-4395-8491-3cbbe770fd6d",
+    "patientName": "Carol Osei",
+    "startTime": "2026-09-03T06:00:00.000Z",
+    "endTime": "2026-09-03T07:00:00.000Z",
+    "duration": 60,
+    "type": "consultation",
+    "status": "scheduled",
+    "notes": ""
+  },
+  {
+    "id": "024df3d8-4201-4358-96c4-77a01eaf9ab2",
+    "createdAt": "2026-09-02T19:14:01.162Z",
+    "title": "dfhfghdfghfgh",
+    "patientId": "fc8756a8-cf0f-489c-bbe2-95a2b63c943c",
+    "patientName": "Backend Patient1785433461603",
+    "startTime": "2026-09-02T06:30:00.000Z",
+    "endTime": "2026-09-02T08:30:00.000Z",
+    "duration": 120,
+    "type": "consultation",
+    "status": "scheduled",
+    "notes": ""
   }
 ]

@@ -232,8 +232,8 @@ const en: Record<string, string> = {
 
   'createPatient.title': 'Add New Patient',
   'createPatient.fullName': 'Full Name *',
-  'createPatient.email': 'Email *',
-  'createPatient.phone': 'Phone *',
+  'createPatient.email': 'Email',
+  'createPatient.phone': 'Phone',
   'createPatient.dob': 'Date of Birth',
   'createPatient.address': 'Address',
   'createPatient.emergencyContact': 'Emergency Contact',
@@ -547,8 +547,8 @@ const mk: Record<string, string> = {
 
   'createPatient.title': 'Нов пациент',
   'createPatient.fullName': 'Целосно име *',
-  'createPatient.email': 'Е-пошта *',
-  'createPatient.phone': 'Телефон *',
+  'createPatient.email': 'Е-пошта',
+  'createPatient.phone': 'Телефон',
   'createPatient.dob': 'Датум на раѓање',
   'createPatient.address': 'Адреса',
   'createPatient.emergencyContact': 'Контакт за итни случаи',

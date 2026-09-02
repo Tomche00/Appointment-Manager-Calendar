@@ -149,26 +149,11 @@ cd calendar-appointment
 # Install dependencies
 npm install
 
-# Start development server
+# Start the JSON API and development server
 npm run dev
 ```
 
-The application will be available at `http://localhost:8080`
-
-### Backend Setup
-
-```bash
-# Navigate to server directory
-cd server
-
-# Install server dependencies
-npm install
-
-# Start backend server
-npm start
-```
-
-The API server will run on `http://localhost:3000`
+The application will be available at `http://localhost:8081`, and the JSON API will run on `http://localhost:3000`. Patients, appointments, and settings are always read from and written to `public/data/*.json` through the API.
 
 ## 🔐 Google Calendar Integration Setup
 
@@ -334,4 +319,3 @@ npm run test:e2e
 
 
 ## 📝 License
-

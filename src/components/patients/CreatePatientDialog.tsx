@@ -10,6 +10,7 @@ import { patientsStorage } from '@/lib/storage';
 import { useToast } from '@/hooks/use-toast';
 import { useI18n } from '@/i18n';
 import { Patient } from '@/types/appointment';
+import { createEmptyPatientForm, normalizePatientForm, validatePatientForm } from '@/lib/patientForm';
 
 interface CreatePatientDialogProps {
   open: boolean;
@@ -27,16 +28,7 @@ export function CreatePatientDialog({
   patient
 }: CreatePatientDialogProps) {
   const { t } = useI18n();
-  const emptyForm = useMemo(() => ({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    dateOfBirth: '',
-    address: '',
-    emergencyContact: '',
-    notes: ''
-  }), []);
+  const emptyForm = useMemo(createEmptyPatientForm, []);
   const [formData, setFormData] = useState(emptyForm);
   const { toast } = useToast();
   const [errors, setErrors] = useState<Record<string, boolean>>({});
@@ -66,12 +58,8 @@ export function CreatePatientDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const nextErrors: Record<string, boolean> = {};
-    if (!formData.firstName) nextErrors.firstName = true;
-    if (!formData.lastName) nextErrors.lastName = true;
-    if (!formData.email) nextErrors.emailRequired = true;
-    if (!formData.phone) nextErrors.phone = true;
-    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) nextErrors.emailInvalid = true;
+    const normalizedForm = normalizePatientForm(formData);
+    const nextErrors = validatePatientForm(normalizedForm);
 
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
@@ -86,7 +74,7 @@ export function CreatePatientDialog({
     try {
       // Duplicate email check (offline mode / API failure paths)
       const existing = await patientsStorage.getAll();
-      if (existing.some((p) => p.email?.toLowerCase?.() === formData.email.toLowerCase() && p.id !== patient?.id)) {
+      if (normalizedForm.email && existing.some((p) => p.email?.toLowerCase?.() === normalizedForm.email.toLowerCase() && p.id !== patient?.id)) {
         setErrors((e) => ({ ...e, emailDuplicate: true }));
         toast({
           title: t('common.error'),
@@ -98,25 +86,23 @@ export function CreatePatientDialog({
 
       if (patient?.id) {
         await patientsStorage.update(patient.id, {
-          ...formData,
-          dateOfBirth: formData.dateOfBirth ?? ''
+          ...normalizedForm,
         });
 
         toast({
           title: 'Patient updated',
-          description: `${formData.firstName} ${formData.lastName} has been updated successfully`,
+          description: `${normalizedForm.firstName} ${normalizedForm.lastName} has been updated successfully`,
         });
 
         onPatientUpdated?.();
       } else {
         await patientsStorage.add({
-          ...formData,
-          dateOfBirth: formData.dateOfBirth ?? ''
+          ...normalizedForm,
         });
 
         toast({
           title: t('createPatient.toastCreatedTitle'),
-          description: t('createPatient.toastCreatedDesc', { name: `${formData.firstName} ${formData.lastName}` }),
+          description: t('createPatient.toastCreatedDesc', { name: `${normalizedForm.firstName} ${normalizedForm.lastName}` }),
         });
 
         onPatientCreated?.();
@@ -170,7 +156,7 @@ export function CreatePatientDialog({
               <section className="rounded-2xl border border-border/60 bg-muted/20 p-3 shadow-sm">
                 <div className="grid gap-3 sm:grid-cols-[60%_40%]">
                   <div className="space-y-1.5">
-                    <Label htmlFor="firstName">First Name</Label>
+                    <Label htmlFor="firstName">First Name *</Label>
                     <Input
                       id="firstName"
                       data-testid="patient-first-name"
@@ -182,7 +168,7 @@ export function CreatePatientDialog({
                     {errors.firstName && <div data-testid="error-first-name-required" className="text-xs font-medium text-destructive">{t('common.error')}</div>}
                   </div>
                   <div className="space-y-1.5 pr-3">
-                    <Label htmlFor="lastName">Last Name</Label>
+                    <Label htmlFor="lastName">Last Name *</Label>
                     <Input
                       id="lastName"
                       data-testid="patient-last-name"
@@ -213,7 +199,6 @@ export function CreatePatientDialog({
                       placeholder={t('createPatient.phEmail')}
                       className="h-9 border-border/70 bg-background/80"
                     />
-                    {errors.emailRequired && <div data-testid="error-email-required" className="text-xs font-medium text-destructive">{t('common.error')}</div>}
                     {errors.emailInvalid && <div data-testid="error-email-invalid" className="text-xs font-medium text-destructive">{t('common.error')}</div>}
                     {errors.emailDuplicate && <div data-testid="error-email-duplicate" className="text-xs font-medium text-destructive">{t('common.error')}</div>}
                   </div>
@@ -232,7 +217,6 @@ export function CreatePatientDialog({
                         placeholder={t('createPatient.phPhone')}
                         className="h-9 border-border/70 bg-background/80"
                       />
-                      {errors.phone && <div data-testid="error-phone-required" className="text-xs font-medium text-destructive">{t('common.error')}</div>}
                     </div>
                     <div className="space-y-1.5">
                       <Label htmlFor="emergencyContact" className="flex items-center gap-2">

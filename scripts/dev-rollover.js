@@ -6,7 +6,7 @@ import { dirname, join } from 'path';
 const args = process.argv.slice(2);
 if (args.includes('--help') || args.includes('-h')) {
   console.log('Usage: node ./scripts/dev-rollover.js [basePort]');
-  console.log('Starts Vite on the first free port starting at basePort (default 8081).');
+  console.log('Starts the JSON API and Vite on the first free port starting at basePort (default 8081).');
   console.log('If DEV_PORT is set, it is used as the starting port.');
   process.exit(0);
 }
@@ -33,8 +33,28 @@ function findFreePort(base) {
   });
 }
 
+async function backendIsRunning() {
+  try {
+    const response = await fetch('http://127.0.0.1:3000/api/health');
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function startBackendIfNeeded() {
+  if (await backendIsRunning()) {
+    console.log('Using existing JSON API on port 3000');
+    return null;
+  }
+
+  console.log('Starting JSON API on port 3000');
+  return spawn(process.execPath, ['./server/index.js'], { stdio: 'inherit' });
+}
+
 async function main() {
   const port = await findFreePort(basePort);
+  const backend = await startBackendIfNeeded();
   console.log(`Starting Vite on port ${port}`);
   const cmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
   const child = spawn(cmd, ['vite'], {
@@ -42,12 +62,27 @@ async function main() {
     stdio: 'inherit',
   });
 
+  const stopBackend = () => {
+    if (backend && !backend.killed) backend.kill();
+  };
+
   child.on('close', (code) => {
+    stopBackend();
     process.exit(code ?? 0);
   });
   child.on('error', (err) => {
+    stopBackend();
     console.error('Failed to start Vite:', err);
     process.exit(1);
+  });
+
+  process.on('SIGINT', () => {
+    stopBackend();
+    child.kill();
+  });
+  process.on('SIGTERM', () => {
+    stopBackend();
+    child.kill();
   });
 }
 
