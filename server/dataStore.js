@@ -134,6 +134,64 @@ export function createDataStore({
 
   const readSettings = async () => mergeSettings(await readJsonFile(settingsFile, DEFAULT_SETTINGS));
 
+  const validateAppointment = (input, patients) => {
+    const patientId = String(input.patientId ?? '').trim();
+    const title = String(input.title ?? '').trim();
+    const startTime = String(input.startTime ?? '').trim();
+    const endTime = String(input.endTime ?? '').trim();
+    const duration = Number(input.duration ?? 30);
+    const type = String(input.type ?? 'consultation');
+    const status = String(input.status ?? 'scheduled');
+    const patient = patients.find((candidate) => candidate.id === patientId);
+
+    if (!title) {
+      const error = new Error('Appointment title is required.');
+      error.statusCode = 400;
+      throw error;
+    }
+    if (!patient) {
+      const error = new Error('A valid patient is required for an appointment.');
+      error.statusCode = 400;
+      throw error;
+    }
+    if (!Number.isFinite(new Date(startTime).getTime()) || !Number.isFinite(new Date(endTime).getTime())) {
+      const error = new Error('Appointment start and end times must be valid dates.');
+      error.statusCode = 400;
+      throw error;
+    }
+    if (new Date(endTime).getTime() <= new Date(startTime).getTime()) {
+      const error = new Error('Appointment end time must be after its start time.');
+      error.statusCode = 400;
+      throw error;
+    }
+    if (![30, 60, 120].includes(duration)) {
+      const error = new Error('Appointment duration must be 30, 60, or 120 minutes.');
+      error.statusCode = 400;
+      throw error;
+    }
+    if (!['consultation', 'follow-up', 'procedure'].includes(type)) {
+      const error = new Error('Appointment type is invalid.');
+      error.statusCode = 400;
+      throw error;
+    }
+    if (!['scheduled', 'completed', 'cancelled', 'no-show'].includes(status)) {
+      const error = new Error('Appointment status is invalid.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    return {
+      patientId,
+      patientName: `${patient.firstName ?? ''} ${patient.lastName ?? ''}`.trim(),
+      title,
+      startTime,
+      endTime,
+      duration,
+      type,
+      status,
+    };
+  };
+
   return {
     async initialize() {
       await Promise.all([
@@ -254,18 +312,12 @@ export function createDataStore({
     },
 
     async createAppointment(input) {
-      const appointments = await readAppointments();
+      const [appointments, patients] = await Promise.all([readAppointments(), readPatients()]);
+      const details = validateAppointment(input, patients);
       const appointment = {
         id: randomUUID(),
         createdAt: input.createdAt ?? new Date().toISOString(),
-        title: String(input.title ?? ''),
-        patientId: String(input.patientId ?? ''),
-        patientName: String(input.patientName ?? ''),
-        startTime: String(input.startTime ?? ''),
-        endTime: String(input.endTime ?? ''),
-        duration: Number(input.duration ?? 30),
-        type: String(input.type ?? 'consultation'),
-        status: String(input.status ?? 'scheduled'),
+        ...details,
         notes: String(input.notes ?? ''),
       };
 
@@ -275,7 +327,7 @@ export function createDataStore({
     },
 
     async updateAppointment(id, updates) {
-      const appointments = await readAppointments();
+      const [appointments, patients] = await Promise.all([readAppointments(), readPatients()]);
       const index = appointments.findIndex((appointment) => appointment.id === id);
       if (index === -1) {
         const error = new Error('Appointment not found.');
@@ -283,9 +335,11 @@ export function createDataStore({
         throw error;
       }
 
+      const details = validateAppointment({ ...appointments[index], ...updates }, patients);
       appointments[index] = {
         ...appointments[index],
         ...updates,
+        ...details,
         id: appointments[index].id,
         createdAt: appointments[index].createdAt,
       };
